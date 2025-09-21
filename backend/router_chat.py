@@ -87,9 +87,9 @@ def find_relevant_content(query: str, docs: list, intent_info: dict) -> list:
         
         # Intent-based scoring
         if intent_info["intent"] == "company_info":
-            if "braintech" in text and "technology" in text:
+            if "venturing digitally" in text:
                 score += 10
-            elif "braintech" in text:
+            elif "venturing" in text:
                 score += 5
                 
         elif intent_info["intent"] == "services":
@@ -198,7 +198,7 @@ def generate_intelligent_response(query: str, relevant_chunks: list, intent_info
     
     # Fallback: Rule-based intelligent responses
     if intent_info["intent"] == "greeting":
-        return "Hello! Welcome to BrainTech Technology. I'm here to help you learn about our services and answer any questions you might have. How can I assist you today?"
+        return "Hello! Welcome to Venturing Digitally. I'm here to help you learn about our services and answer any questions you might have. How can I assist you today?"
     
     if not relevant_chunks:
         return "I apologize, but I couldn't find specific information about that topic on our website. Could you please rephrase your question or ask about our services, pricing, or team?"
@@ -209,9 +209,9 @@ def generate_intelligent_response(query: str, relevant_chunks: list, intent_info
     # Generate contextual response based on intent
     if intent_info["intent"] == "company_info":
         # Extract company name and description
-        if "braintech technology" in best_chunk.lower():
+        if "venturing digitally" in best_chunk.lower():
             clean_text = clean_response_text(best_chunk)
-            return f"BrainTech Technology is our company name. We build cutting-edge solutions that empower businesses to thrive in the digital age. {clean_text}"
+            return f"Venturing Digitally is our company name. We build cutting-edge solutions that empower businesses to thrive in the digital age. {clean_text}"
         else:
             clean_text = clean_response_text(best_chunk)
             return f"Based on our website content: {clean_text}"

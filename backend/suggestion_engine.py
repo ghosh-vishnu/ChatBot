@@ -380,3 +380,4 @@ class SuggestionEngine:
 
 # Global instance
 suggestion_engine = SuggestionEngine()
+

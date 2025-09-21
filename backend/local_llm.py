@@ -122,3 +122,4 @@ def extract_key_entities(text: str) -> list:
         print(f"Entity extraction error: {e}")
     
     return []
+

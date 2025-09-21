@@ -1,37 +1,56 @@
 from __future__ import annotations
 
 import json
-from typing import Iterable, Dict, Any, List
+import os
+from typing import List, Dict, Any
 
-from .config import CHUNKS_JSON
 from .db import upsert_chunks
+from .embedding import embed_texts
 
-
-def read_jsonl(path: str) -> Iterable[Dict[str, Any]]:
-    with open(path, "r", encoding="utf-8") as f:
+def ingest_jsonl(file_path: str) -> int:
+    """Ingest data from JSONL file"""
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    chunks = []
+    with open(file_path, 'r', encoding='utf-8') as f:
         for line in f:
             if line.strip():
-                yield json.loads(line)
+                chunk = json.loads(line)
+                chunks.append(chunk)
+    
+    if chunks:
+        upsert_chunks(chunks)
+        print(f"✅ Ingested {len(chunks)} chunks from {file_path}")
+    
+    return len(chunks)
 
-
-def ingest_from_jsonl(jsonl_path: str | None = None) -> int:
-    path = jsonl_path or str(CHUNKS_JSON)
-    batch: List[Dict[str, Any]] = []
-    total = 0
-    for rec in read_jsonl(path):
-        batch.append(rec)
-        if len(batch) >= 100:
-            upsert_chunks(batch)
-            total += len(batch)
-            batch = []
-    if batch:
-        upsert_chunks(batch)
-        total += len(batch)
-    return total
-
+def ingest_json(file_path: str) -> int:
+    """Ingest data from JSON file"""
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"File not found: {file_path}")
+    
+    with open(file_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    if isinstance(data, list):
+        chunks = data
+    else:
+        chunks = [data]
+    
+    if chunks:
+        upsert_chunks(chunks)
+        print(f"✅ Ingested {len(chunks)} chunks from {file_path}")
+    
+    return len(chunks)
 
 if __name__ == "__main__":
-    n = ingest_from_jsonl()
-    print(f"Ingested {n} chunks")
-
-
+    # Example usage
+    data_dir = "data"
+    chunks_file = os.path.join(data_dir, "chunks.jsonl")
+    
+    if os.path.exists(chunks_file):
+        count = ingest_jsonl(chunks_file)
+        print(f"Total chunks ingested: {count}")
+    else:
+        print(f"Chunks file not found: {chunks_file}")

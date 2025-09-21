@@ -1,28 +1,42 @@
 from __future__ import annotations
 
+import os
 from typing import List
 
-from .config import OPENAI_API_KEY, EMBED_MODEL
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
 
 try:
     from fastembed import TextEmbedding
-    _LOCAL_EMBEDDING = TextEmbedding(model_name="sentence-transformers/all-MiniLM-L6-v2")
-except Exception:
-    _LOCAL_EMBEDDING = None
+    FASTEMBED_AVAILABLE = True
+except ImportError:
+    FASTEMBED_AVAILABLE = False
 
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 def embed_texts(texts: List[str]) -> List[List[float]]:
-    # Prefer OpenAI if key is present; else fallback to local fastembed
-    if OPENAI_API_KEY:
-        from openai import OpenAI
+    """Embed texts using available embedding model"""
+    if OPENAI_API_KEY and OPENAI_AVAILABLE:
+        return _embed_with_openai(texts)
+    elif FASTEMBED_AVAILABLE:
+        return _embed_with_fastembed(texts)
+    else:
+        raise RuntimeError("No embedding model available")
 
-        client = OpenAI(api_key=OPENAI_API_KEY)
-        resp = client.embeddings.create(model=EMBED_MODEL, input=texts)
-        return [d.embedding for d in resp.data]
-    if _LOCAL_EMBEDDING is None:
-        raise RuntimeError("Local embedding model not available. Install fastembed.")
-    # fastembed returns generator of vectors
-    vectors = list(_LOCAL_EMBEDDING.embed(texts))
-    return [list(map(float, v)) for v in vectors]
+def _embed_with_openai(texts: List[str]) -> List[List[float]]:
+    """Embed texts using OpenAI"""
+    client = OpenAI(api_key=OPENAI_API_KEY)
+    response = client.embeddings.create(
+        model="text-embedding-3-large",
+        input=texts
+    )
+    return [data.embedding for data in response.data]
 
-
+def _embed_with_fastembed(texts: List[str]) -> List[List[float]]:
+    """Embed texts using FastEmbed"""
+    model = TextEmbedding()
+    embeddings = list(model.embed(texts))
+    return embeddings

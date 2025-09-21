@@ -1,21 +1,24 @@
-#!/usr/bin/env python3
-"""
-Comprehensive scraper for Venturing Digitally website
-Scrapes all provided URLs and creates advanced AI model data
-"""
+from __future__ import annotations
 
-import asyncio
-import aiohttp
-import json
-import os
+import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
+import json
 import time
-from typing import List, Dict, Set
+from urllib.parse import urljoin, urlparse
+import os
+from typing import List, Dict, Any, Optional
 import re
 
-# All the URLs provided by the user
-VENTURING_DIGITALLY_URLS = [
+# Configuration
+BASE_URL = "https://venturingdigitally.com"
+OUTPUT_FILE = "data/venturing_digitally_data.json"
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+}
+REQUEST_TIMEOUT = 10
+
+# List of URLs to scrape
+URLS_TO_SCRAPE = [
     "https://venturingdigitally.com",
     "https://venturingdigitally.com/services",
     "https://venturingdigitally.com/AboutCompany",
@@ -64,241 +67,137 @@ VENTURING_DIGITALLY_URLS = [
     "https://venturingdigitally.com/ContactUs"
 ]
 
-class VenturingDigitallyScraper:
-    def __init__(self):
-        self.session = None
-        self.scraped_data = []
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-        }
-        
-    async def __aenter__(self):
-        self.session = aiohttp.ClientSession(
-            headers=self.headers,
-            timeout=aiohttp.ClientTimeout(total=30)
-        )
-        return self
-        
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.session:
-            await self.session.close()
-    
-    def clean_text(self, text: str) -> str:
-        """Clean and normalize text content"""
-        if not text:
-            return ""
-        
-        # Remove extra whitespace and normalize
-        text = re.sub(r'\s+', ' ', text.strip())
-        
-        # Remove common unwanted elements
-        unwanted_patterns = [
-            r'Cookie Policy.*?Accept',
-            r'Privacy Policy.*?Accept',
-            r'Terms of Service.*?Accept',
-            r'Subscribe to our newsletter',
-            r'Follow us on',
-            r'© \d{4}.*?All rights reserved',
-            r'Powered by.*?',
-        ]
-        
-        for pattern in unwanted_patterns:
-            text = re.sub(pattern, '', text, flags=re.IGNORECASE | re.DOTALL)
-        
-        return text.strip()
-    
-    def extract_page_info(self, soup: BeautifulSoup, url: str) -> Dict:
-        """Extract comprehensive page information"""
-        # Get title
-        title = soup.find('title')
-        title_text = title.get_text().strip() if title else ""
-        
-        # Get meta description
-        meta_desc = soup.find('meta', attrs={'name': 'description'})
-        description = meta_desc.get('content', '').strip() if meta_desc else ""
-        
-        # Remove script and style elements
-        for script in soup(["script", "style", "nav", "footer", "header"]):
-            script.decompose()
-        
-        # Extract main content
-        main_content = soup.find('main') or soup.find('div', class_='content') or soup.find('body')
-        if main_content:
-            content_text = main_content.get_text()
-        else:
-            content_text = soup.get_text()
-        
-        # Clean the content
-        content_text = self.clean_text(content_text)
-        
-        # Extract headings
-        headings = []
-        for tag in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
-            for heading in soup.find_all(tag):
-                heading_text = heading.get_text().strip()
-                if heading_text:
-                    headings.append({
-                        'level': tag,
-                        'text': heading_text
-                    })
-        
-        # Extract links
-        links = []
-        for link in soup.find_all('a', href=True):
-            href = link.get('href')
-            link_text = link.get_text().strip()
-            if href and link_text:
-                links.append({
-                    'url': urljoin(url, href),
-                    'text': link_text
-                })
-        
-        # Extract images with alt text
-        images = []
-        for img in soup.find_all('img', alt=True):
-            alt_text = img.get('alt', '').strip()
-            src = img.get('src', '')
-            if alt_text and src:
-                images.append({
-                    'src': urljoin(url, src),
-                    'alt': alt_text
-                })
-        
-        # Determine page category based on URL
-        page_category = self.categorize_page(url)
-        
-        return {
-            'url': url,
-            'title': title_text,
-            'description': description,
-            'content': content_text,
-            'headings': headings,
-            'links': links,
-            'images': images,
-            'category': page_category,
-            'scraped_at': time.time()
-        }
-    
-    def categorize_page(self, url: str) -> str:
-        """Categorize page based on URL"""
-        url_lower = url.lower()
-        
-        if 'services' in url_lower:
-            return 'services'
-        elif 'about' in url_lower:
-            return 'about'
-        elif 'testimonials' in url_lower:
-            return 'testimonials'
-        elif 'mission' in url_lower or 'vision' in url_lower:
-            return 'mission_vision'
-        elif 'development' in url_lower and 'process' in url_lower:
-            return 'development_process'
-        elif 'events' in url_lower:
-            return 'events'
-        elif 'contact' in url_lower:
-            return 'contact'
-        elif 'careers' in url_lower:
-            return 'careers'
-        elif 'blogs' in url_lower or 'insights' in url_lower:
-            return 'blog'
-        elif 'training' in url_lower or 'internship' in url_lower:
-            return 'training'
-        elif any(service in url_lower for service in ['website', 'application', 'ui', 'enterprise', 'custom', 'seo', 'digital', 'ai', 'cloud', 'cyber', 'data', 'qa']):
-            return 'service_detail'
-        elif any(industry in url_lower for industry in ['pharma', 'insurance', 'healthcare', 'construction', 'manufacturing', 'travel', 'oil', 'ecommerce', 'transportation', 'school']):
-            return 'industry_solution'
-        else:
-            return 'general'
-    
-    async def scrape_url(self, url: str) -> Dict:
-        """Scrape a single URL"""
-        try:
-            print(f"Scraping: {url}")
-            async with self.session.get(url) as response:
-                if response.status == 200:
-                    html = await response.text()
-                    soup = BeautifulSoup(html, 'html.parser')
-                    page_info = self.extract_page_info(soup, url)
-                    print(f"✓ Successfully scraped: {url}")
-                    return page_info
-                else:
-                    print(f"✗ Failed to scrape {url}: HTTP {response.status}")
-                    return None
-        except Exception as e:
-            print(f"✗ Error scraping {url}: {str(e)}")
-            return None
-    
-    async def scrape_all_urls(self) -> List[Dict]:
-        """Scrape all URLs concurrently"""
-        print(f"Starting to scrape {len(VENTURING_DIGITALLY_URLS)} URLs...")
-        
-        # Create semaphore to limit concurrent requests
-        semaphore = asyncio.Semaphore(5)
-        
-        async def scrape_with_semaphore(url):
-            async with semaphore:
-                return await self.scrape_url(url)
-        
-        # Scrape all URLs concurrently
-        tasks = [scrape_with_semaphore(url) for url in VENTURING_DIGITALLY_URLS]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Filter out None results and exceptions
-        successful_results = []
-        for result in results:
-            if isinstance(result, dict) and result is not None:
-                successful_results.append(result)
-            elif isinstance(result, Exception):
-                print(f"Exception occurred: {result}")
-        
-        print(f"Successfully scraped {len(successful_results)} out of {len(VENTURING_DIGITALLY_URLS)} URLs")
-        return successful_results
-    
-    def save_data(self, data: List[Dict], filename: str = "venturing_digitally_data.json"):
-        """Save scraped data to file"""
-        os.makedirs("data", exist_ok=True)
-        filepath = os.path.join("data", filename)
-        
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-        
-        print(f"Data saved to: {filepath}")
-        return filepath
+def fetch_page(url: str) -> Optional[str]:
+    """Fetch the content of a given URL"""
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        return response.text
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching {url}: {e}")
+        return None
 
-async def main():
-    """Main function to run the scraper"""
-    print("🚀 Starting Venturing Digitally Website Scraper")
-    print("=" * 50)
+def extract_content(html: str) -> str:
+    """Extract main textual content from HTML"""
+    soup = BeautifulSoup(html, 'html.parser')
+    # Remove script, style, nav, footer, header, and other non-content tags
+    for tag in soup(['script', 'style', 'nav', 'footer', 'header', 'aside', 'form', 'noscript', 'svg', 'img']):
+        tag.decompose()
     
-    async with VenturingDigitallyScraper() as scraper:
-        # Scrape all URLs
-        scraped_data = await scraper.scrape_all_urls()
-        
-        if scraped_data:
-            # Save the data
-            filepath = scraper.save_data(scraped_data)
+    # Get text from main content areas
+    main_content = soup.find('main') or soup.find('article') or soup.find('body')
+    if main_content:
+        text = main_content.get_text(separator=' ', strip=True)
+    else:
+        text = soup.get_text(separator=' ', strip=True)
+    
+    # Clean up extra whitespace and newlines
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+def extract_metadata(soup: BeautifulSoup) -> Dict:
+    """Extract metadata like title and description"""
+    title = soup.find('title').get_text(strip=True) if soup.find('title') else ''
+    description = ''
+    meta_desc = soup.find('meta', attrs={'name': 'description'})
+    if meta_desc and 'content' in meta_desc.attrs:
+        description = meta_desc['content'].strip()
+    return {'title': title, 'description': description}
+
+def categorize_url(url: str) -> str:
+    """Categorize a URL based on its path"""
+    path = urlparse(url).path.lower()
+    if '/services' in path:
+        if path.count('/') > 2: # e.g., /services/websitedevelopment
+            return 'service_detail'
+        return 'services'
+    elif '/aboutcompany' in path:
+        return 'about'
+    elif '/testimonials' in path:
+        return 'testimonials'
+    elif '/missionvision' in path:
+        return 'mission_vision'
+    elif '/developmentprocess' in path:
+        return 'development_process'
+    elif '/events' in path:
+        return 'events'
+    elif '/blogs' in path or '/insights' in path:
+        return 'blog'
+    elif '/careers' in path:
+        return 'careers'
+    elif '/training-and-internship' in path:
+        return 'training'
+    elif '/contactus' in path:
+        return 'contact'
+    elif path == '/':
+        return 'homepage'
+    return 'general'
+
+def scrape_urls(urls: List[str]) -> List[Dict]:
+    """Scrape a list of URLs and return structured data"""
+    scraped_data = []
+    successful_scrapes = 0
+    failed_scrapes = 0
+    
+    print(f"🚀 Starting Venturing Digitally Website Scraper")
+    print(f"==================================================")
+    print(f"Starting to scrape {len(urls)} URLs...")
+
+    for i, url in enumerate(urls):
+        print(f"[{i+1}/{len(urls)}] Scraping: {url}")
+        html_content = fetch_page(url)
+        if html_content:
+            soup = BeautifulSoup(html_content, 'html.parser')
+            metadata = extract_metadata(soup)
+            content = extract_content(html_content) # Extract content after metadata
+            category = categorize_url(url)
             
-            # Print summary
-            print("\n📊 Scraping Summary:")
-            print("=" * 30)
-            print(f"Total URLs: {len(VENTURING_DIGITALLY_URLS)}")
-            print(f"Successfully scraped: {len(scraped_data)}")
-            print(f"Failed: {len(VENTURING_DIGITALLY_URLS) - len(scraped_data)}")
-            
-            # Print categories
-            categories = {}
-            for page in scraped_data:
-                category = page.get('category', 'unknown')
-                categories[category] = categories.get(category, 0) + 1
-            
-            print("\n📁 Page Categories:")
-            for category, count in categories.items():
-                print(f"  {category}: {count} pages")
-            
-            print(f"\n💾 Data saved to: {filepath}")
-            print("\n✅ Scraping completed successfully!")
+            scraped_data.append({
+                'url': url,
+                'title': metadata['title'],
+                'description': metadata['description'],
+                'content': content,
+                'headings': [h.get_text(strip=True) for h in soup.find_all(re.compile('^h[1-6]$'))],
+                'category': category,
+                'scraped_at': time.time()
+            })
+            print(f"✓ Successfully scraped: {url}")
+            successful_scrapes += 1
         else:
-            print("❌ No data was scraped successfully")
+            print(f"✗ Failed to scrape: {url}")
+            failed_scrapes += 1
+        time.sleep(0.5) # Be polite to the server
+
+    print(f"Successfully scraped {successful_scrapes} out of {len(urls)} URLs")
+    if failed_scrapes > 0:
+        print(f"Failed to scrape {failed_scrapes} URLs.")
+    
+    return scraped_data
+
+def save_data(data: List[Dict], output_path: str):
+    """Save scraped data to a JSON file"""
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    print(f"Data saved to: {output_path}")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    scraped_pages = scrape_urls(URLS_TO_SCRAPE)
+    save_data(scraped_pages, OUTPUT_FILE)
+    
+    # Summary statistics
+    categories = {}
+    for page in scraped_pages:
+        cat = page.get('category', 'unknown')
+        categories[cat] = categories.get(cat, 0) + 1
+    
+    print("\n📊 Scraping Summary:")
+    print("==============================")
+    print(f"Total URLs: {len(URLS_TO_SCRAPE)}")
+    print(f"Successfully scraped: {len(scraped_pages)}")
+    print(f"Failed: {len(URLS_TO_SCRAPE) - len(scraped_pages)}")
+    print("\n📁 Page Categories:")
+    for cat, count in categories.items():
+        print(f"  {cat}: {count} pages")
+    print(f"\n💾 Data saved to: {OUTPUT_FILE}")
+    print("\n✅ Scraping completed successfully!")
