@@ -35,6 +35,7 @@ const ChatWidget: React.FC = () => {
     }
   }, [open])
 
+
   const sendMessage = async () => {
     const q = input.trim()
     if (!q || loading) return
