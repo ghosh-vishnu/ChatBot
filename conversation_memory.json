@@ -1,0 +1,74 @@
+{
+  "sessions": {
+    "session_default": {
+      "user_id": "default",
+      "created_at": "2025-09-21T13:47:17.385988",
+      "last_activity": "2025-09-21T17:16:03.322421",
+      "conversation": [
+        {
+          "timestamp": "2025-09-21T17:14:14.449038",
+          "query": "What services do you offer?",
+          "response": "Our expertise spans across multiple domains:\n\n— **Web & Mobile Development** | Custom applications and responsive websites\n— **AI & Machine Learning** | Intelligent automation and predictive analytics\n— **Cloud Computing** | Scalable infrastructure and migration services\n— **Digital Marketing** | SEO, social media, and content marketing\n— **Cybersecurity** | Enterprise-grade security solutions\n— **Data Analytics** | Business intelligence and insights\n— **UI/UX Design** | User-centered design principles\n— **Enterprise Solutions** | Custom business software\n\nEach service is designed to meet your specific business needs and drive growth.",
+          "intent": "services"
+        },
+        {
+          "timestamp": "2025-09-21T17:14:58.718434",
+          "query": "Website Development",
+          "response": "We use cutting-edge technologies in our development:\n\n— **Frontend** | React, Angular, Vue.js, Next.js\n— **Backend** | Node.js, Python, PHP\n\nOur team stays updated with the latest technology trends to deliver innovative solutions.",
+          "intent": "technology"
+        },
+        {
+          "timestamp": "2025-09-21T17:14:58.819267",
+          "query": "Website Development",
+          "response": "We use cutting-edge technologies in our development:\n\n— **Frontend** | React, Angular, Vue.js, Next.js\n— **Backend** | Node.js, Python, PHP\n\nOur team stays updated with the latest technology trends to deliver innovative solutions.",
+          "intent": "technology"
+        },
+        {
+          "timestamp": "2025-09-21T17:15:02.482228",
+          "query": "Python & AI/ML",
+          "response": "Based on your question, here's what I found: We provide artificial intelligence and machine learning solutions to help businesses automate processes and gain insights from data Our AI/ML services include predictive analytics, natural language processing, computer vision, chatbots, recommendation systems, and data mining We use advanced AI/ML t...",
+          "intent": "general"
+        },
+        {
+          "timestamp": "2025-09-21T17:15:16.916253",
+          "query": "What AI/ML technologies do you use?",
+          "response": "Based on your question, here's what I found: We provide artificial intelligence and machine learning solutions to help businesses automate processes and gain insights from data Our AI/ML services include predictive analytics, natural language processing, computer vision, chatbots, recommendation systems, and data mining We use advanced AI/ML t...",
+          "intent": "general"
+        },
+        {
+          "timestamp": "2025-09-21T17:15:22.577289",
+          "query": "Can you help with AI strategy?",
+          "response": "We provide comprehensive support and maintenance services:\n\n• 24/7 Technical Support\n• Bug Fixes and Updates\n• Performance Optimization\n• Security Updates\n• Feature Enhancements\n• Regular Maintenance\n\nOur support team is dedicated to ensuring your software continues to perform optimally. Contact us for any support needs.",
+          "intent": "support"
+        },
+        {
+          "timestamp": "2025-09-21T17:15:33.310072",
+          "query": "What AI/ML technologies do you use?",
+          "response": "Based on your question, here's what I found: We provide artificial intelligence and machine learning solutions to help businesses automate processes and gain insights from data Our AI/ML services include predictive analytics, natural language processing, computer vision, chatbots, recommendation systems, and data mining We use advanced AI/ML t...",
+          "intent": "general"
+        },
+        {
+          "timestamp": "2025-09-21T17:15:37.367063",
+          "query": "Can you help with AI strategy?",
+          "response": "We provide comprehensive support and maintenance services:\n\n• 24/7 Technical Support\n• Bug Fixes and Updates\n• Performance Optimization\n• Security Updates\n• Feature Enhancements\n• Regular Maintenance\n\nOur support team is dedicated to ensuring your software continues to perform optimally. Contact us for any support needs.",
+          "intent": "support"
+        },
+        {
+          "timestamp": "2025-09-21T17:15:43.160473",
+          "query": "hi",
+          "response": "Greetings! Welcome to Venturing Digitally!\n\nI'm excited to help you explore our comprehensive digital services. How may I assist you today?",
+          "intent": "greeting"
+        },
+        {
+          "timestamp": "2025-09-21T17:16:03.322421",
+          "query": "Tell me about your company",
+          "response": "Venturing Digitally is a leading software company that specializes in digital transformation solutions. We offer comprehensive services including custom website development, mobile applications, ERP software, AI/ML solutions, cloud services, digital marketing, and more. Our team of experienced developers, designers, and digital experts is passionate about creating innovative solutions that help businesses grow and succeed in the digital world.",
+          "intent": "about"
+        }
+      ],
+      "user_preferences": {},
+      "context": {}
+    }
+  },
+  "last_updated": "2025-09-21T17:16:03.322461"
+}
