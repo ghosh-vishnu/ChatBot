@@ -5,6 +5,13 @@ interface LoginCredentials {
   password: string
 }
 
+interface RegisterCredentials {
+  username: string
+  password: string
+  email: string
+  full_name: string
+}
+
 interface DashboardData {
   total_sessions: number
   total_conversations: number
@@ -63,9 +70,17 @@ const AdminApp: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [loginError, setLoginError] = useState('')
+  const [registerError, setRegisterError] = useState('')
+  const [showRegister, setShowRegister] = useState(false)
   const [credentials, setCredentials] = useState<LoginCredentials>({
     username: '',
     password: ''
+  })
+  const [registerData, setRegisterData] = useState<RegisterCredentials>({
+    username: '',
+    password: '',
+    email: '',
+    full_name: ''
   })
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -83,49 +98,97 @@ const AdminApp: React.FC = () => {
   useEffect(() => {
     const token = localStorage.getItem('admin_token')
     if (token) {
-      setIsAuthenticated(true)
-      fetchDashboardData()
+      // Verify token with backend
+      verifyToken(token)
+    } else {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }, [])
+
+  const verifyToken = async (token: string) => {
+    try {
+      const response = await fetch('http://localhost:8000/auth/verify', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        setIsAuthenticated(true)
+        fetchDashboardData()
+      } else {
+        localStorage.removeItem('admin_token')
+        setIsAuthenticated(false)
+      }
+    } catch (error) {
+      console.error('Token verification error:', error)
+      localStorage.removeItem('admin_token')
+      setIsAuthenticated(false)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   // Fetch dashboard data from backend
   const fetchDashboardData = async () => {
     setIsDataLoading(true)
     try {
+      const token = localStorage.getItem('admin_token')
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+      
       // Fetch dashboard stats
-      const statsResponse = await fetch('http://localhost:8000/admin/stats')
+      const statsResponse = await fetch('http://localhost:8000/admin/stats', {
+        headers
+      })
       if (statsResponse.ok) {
         const statsData = await statsResponse.json()
         setDashboardData(statsData)
+      } else {
+        console.error('Stats API error:', statsResponse.status)
       }
 
       // Fetch recent conversations
-      const conversationsResponse = await fetch('http://localhost:8000/admin/conversations')
+      const conversationsResponse = await fetch('http://localhost:8000/admin/conversations', {
+        headers
+      })
       if (conversationsResponse.ok) {
         const conversationsData = await conversationsResponse.json()
         setConversations(conversationsData.conversations || [])
+      } else {
+        console.error('Conversations API error:', conversationsResponse.status)
       }
 
       // Fetch FAQs
-      const faqsResponse = await fetch('http://localhost:8000/admin/faqs')
+      const faqsResponse = await fetch('http://localhost:8000/admin/faqs', {
+        headers
+      })
       if (faqsResponse.ok) {
         const faqsData = await faqsResponse.json()
         setFaqs(faqsData.faqs || [])
+      } else {
+        console.error('FAQs API error:', faqsResponse.status)
       }
 
       // Fetch User Analytics
-      const userAnalyticsResponse = await fetch('http://localhost:8000/admin/user-analytics')
+      const userAnalyticsResponse = await fetch('http://localhost:8000/admin/user-analytics', {
+        headers
+      })
       if (userAnalyticsResponse.ok) {
         const userAnalyticsData = await userAnalyticsResponse.json()
         setUserAnalytics(userAnalyticsData)
+      } else {
+        console.error('User Analytics API error:', userAnalyticsResponse.status)
       }
 
       // Fetch AI Models
-      const aiModelsResponse = await fetch('http://localhost:8000/admin/ai-models')
+      const aiModelsResponse = await fetch('http://localhost:8000/admin/ai-models', {
+        headers
+      })
       if (aiModelsResponse.ok) {
         const aiModelsData = await aiModelsResponse.json()
         setAiModels(aiModelsData.models || [])
+      } else {
+        console.error('AI Models API error:', aiModelsResponse.status)
       }
 
       setLastRefresh(new Date())
@@ -144,17 +207,65 @@ const AdminApp: React.FC = () => {
     }
   }, [isAuthenticated])
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoginError('')
+    setIsLoading(true)
 
-    if (credentials.username === 'admin' && credentials.password === 'admin123') {
-      const token = 'demo_admin_token_' + Date.now()
-      localStorage.setItem('admin_token', token)
-      setIsAuthenticated(true)
-      fetchDashboardData()
-    } else {
-      setLoginError('Invalid username or password')
+    try {
+      const response = await fetch('http://localhost:8000/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        localStorage.setItem('admin_token', data.access_token)
+        setIsAuthenticated(true)
+        fetchDashboardData()
+      } else {
+        const errorData = await response.json()
+        setLoginError(errorData.detail || 'Invalid username or password')
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      setLoginError('Network error. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setRegisterError('')
+    setIsLoading(true)
+
+    try {
+      const response = await fetch('http://localhost:8000/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(registerData),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        alert('Registration successful! Please login with your credentials.')
+        setShowRegister(false)
+        setRegisterData({ username: '', password: '', email: '', full_name: '' })
+      } else {
+        const errorData = await response.json()
+        setRegisterError(errorData.detail || 'Registration failed')
+      }
+    } catch (error) {
+      console.error('Registration error:', error)
+      setRegisterError('Network error. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -944,105 +1055,282 @@ const AdminApp: React.FC = () => {
               <span style={{ fontSize: '24px', color: 'white' }}>⚙️</span>
             </div>
             <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0 0 8px' }}>
-              Admin Login
+              {showRegister ? 'Create Account' : 'Admin Login'}
             </h1>
             <p style={{ color: '#6b7280', margin: '0' }}>
               Venturing Digitally Admin Panel
             </p>
           </div>
 
-          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div>
-              <label style={{ 
-                display: 'block', 
-                fontSize: '14px', 
-                fontWeight: '500', 
-                color: '#374151', 
-                marginBottom: '8px' 
-              }}>
-                Username
-              </label>
-              <input
-                type="text"
-                value={credentials.username}
-                onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
-                style={{ 
-                  width: '100%', 
-                  padding: '12px 16px', 
-                  border: '1px solid #d1d5db', 
-                  borderRadius: '8px', 
-                  fontSize: '16px',
-                  boxSizing: 'border-box'
-                }}
-                placeholder="Enter username"
-                required
-              />
-            </div>
-
-            <div>
-              <label style={{ 
-                display: 'block', 
-                fontSize: '14px', 
-                fontWeight: '500', 
-                color: '#374151', 
-                marginBottom: '8px' 
-              }}>
-                Password
-              </label>
-              <input
-                type="password"
-                value={credentials.password}
-                onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
-                style={{ 
-                  width: '100%', 
-                  padding: '12px 16px', 
-                  border: '1px solid #d1d5db', 
-                  borderRadius: '8px', 
-                  fontSize: '16px',
-                  boxSizing: 'border-box'
-                }}
-                placeholder="Enter password"
-                required
-              />
-            </div>
-
-            {loginError && (
-              <div style={{ 
-                backgroundColor: '#fef2f2', 
-                border: '1px solid #fecaca', 
-                color: '#dc2626', 
-                padding: '12px 16px', 
-                borderRadius: '8px' 
-              }}>
-                {loginError}
+          {!showRegister ? (
+            // Login Form
+            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  color: '#374151', 
+                  marginBottom: '8px' 
+                }}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={credentials.username}
+                  onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
+                  style={{ 
+                    width: '100%', 
+                    padding: '12px 16px', 
+                    border: '1px solid #d1d5db', 
+                    borderRadius: '8px', 
+                    fontSize: '16px',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="Enter username"
+                  required
+                />
               </div>
-            )}
 
-            <button
-              type="submit"
-              style={{ 
-                width: '100%', 
-                background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', 
-                color: 'white', 
-                padding: '12px', 
-                borderRadius: '8px', 
-                border: 'none', 
-                fontSize: '16px', 
-                fontWeight: '500', 
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-              onMouseOver={(e) => e.target.style.transform = 'translateY(-1px)'}
-              onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-            >
-              Login to Admin Panel
-            </button>
-          </form>
+              <div>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  color: '#374151', 
+                  marginBottom: '8px' 
+                }}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={credentials.password}
+                  onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
+                  style={{ 
+                    width: '100%', 
+                    padding: '12px 16px', 
+                    border: '1px solid #d1d5db', 
+                    borderRadius: '8px', 
+                    fontSize: '16px',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="Enter password"
+                  required
+                />
+              </div>
+
+              {loginError && (
+                <div style={{ 
+                  backgroundColor: '#fef2f2', 
+                  border: '1px solid #fecaca', 
+                  color: '#dc2626', 
+                  padding: '12px 16px', 
+                  borderRadius: '8px' 
+                }}>
+                  {loginError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                style={{ 
+                  width: '100%', 
+                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', 
+                  color: 'white', 
+                  padding: '12px', 
+                  borderRadius: '8px', 
+                  border: 'none', 
+                  fontSize: '16px', 
+                  fontWeight: '500', 
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => e.target.style.transform = 'translateY(-1px)'}
+                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+              >
+                Login to Admin Panel
+              </button>
+            </form>
+          ) : (
+            // Register Form
+            <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  color: '#374151', 
+                  marginBottom: '8px' 
+                }}>
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={registerData.full_name}
+                  onChange={(e) => setRegisterData(prev => ({ ...prev, full_name: e.target.value }))}
+                  style={{ 
+                    width: '100%', 
+                    padding: '12px 16px', 
+                    border: '1px solid #d1d5db', 
+                    borderRadius: '8px', 
+                    fontSize: '16px',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="Enter full name"
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  color: '#374151', 
+                  marginBottom: '8px' 
+                }}>
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={registerData.email}
+                  onChange={(e) => setRegisterData(prev => ({ ...prev, email: e.target.value }))}
+                  style={{ 
+                    width: '100%', 
+                    padding: '12px 16px', 
+                    border: '1px solid #d1d5db', 
+                    borderRadius: '8px', 
+                    fontSize: '16px',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="Enter email"
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  color: '#374151', 
+                  marginBottom: '8px' 
+                }}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={registerData.username}
+                  onChange={(e) => setRegisterData(prev => ({ ...prev, username: e.target.value }))}
+                  style={{ 
+                    width: '100%', 
+                    padding: '12px 16px', 
+                    border: '1px solid #d1d5db', 
+                    borderRadius: '8px', 
+                    fontSize: '16px',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="Enter username"
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  color: '#374151', 
+                  marginBottom: '8px' 
+                }}>
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={registerData.password}
+                  onChange={(e) => setRegisterData(prev => ({ ...prev, password: e.target.value }))}
+                  style={{ 
+                    width: '100%', 
+                    padding: '12px 16px', 
+                    border: '1px solid #d1d5db', 
+                    borderRadius: '8px', 
+                    fontSize: '16px',
+                    boxSizing: 'border-box'
+                  }}
+                  placeholder="Enter password"
+                  required
+                />
+              </div>
+
+              {registerError && (
+                <div style={{ 
+                  backgroundColor: '#fef2f2', 
+                  border: '1px solid #fecaca', 
+                  color: '#dc2626', 
+                  padding: '12px 16px', 
+                  borderRadius: '8px' 
+                }}>
+                  {registerError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                style={{ 
+                  width: '100%', 
+                  background: 'linear-gradient(135deg, #10b981, #059669)', 
+                  color: 'white', 
+                  padding: '12px', 
+                  borderRadius: '8px', 
+                  border: 'none', 
+                  fontSize: '16px', 
+                  fontWeight: '500', 
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => e.target.style.transform = 'translateY(-1px)'}
+                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+              >
+                Create Account
+              </button>
+            </form>
+          )}
 
           <div style={{ marginTop: '24px', textAlign: 'center' }}>
-            <p style={{ fontSize: '14px', color: '#6b7280', margin: '0' }}>
-              Demo Credentials: <strong>admin</strong> / <strong>admin123</strong>
-            </p>
+            {!showRegister ? (
+              <>
+                <p style={{ fontSize: '14px', color: '#6b7280', margin: '0 0 16px' }}>
+                  Demo Credentials: <strong>admin</strong> / <strong>admin123</strong>
+                </p>
+                <button
+                  onClick={() => setShowRegister(true)}
+                  style={{ 
+                    backgroundColor: 'transparent', 
+                    color: '#3b82f6', 
+                    border: 'none', 
+                    fontSize: '14px', 
+                    cursor: 'pointer',
+                    textDecoration: 'underline'
+                  }}
+                >
+                  Don't have an account? Sign up here
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setShowRegister(false)}
+                style={{ 
+                  backgroundColor: 'transparent', 
+                  color: '#3b82f6', 
+                  border: 'none', 
+                  fontSize: '14px', 
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+              >
+                Already have an account? Login here
+              </button>
+            )}
           </div>
         </div>
       </div>
