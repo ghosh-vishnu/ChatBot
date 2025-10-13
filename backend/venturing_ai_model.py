@@ -40,7 +40,7 @@ class VenturingDigitallyAI:
         }
         
         self.intent_patterns = {
-            'greeting': [r'\b(hi|hello|hey|greetings|good morning|good afternoon|good evening|namaste|namaskar)\b'],
+            'greeting': [r'\b(hi|hello|hey|greetings|good morning|good afternoon|good evening|good night|namaste|namaskar|bye|goodbye|see you|take care|farewell)\b'],
             'services': [r'\b(services?|what do you do|what can you help|offer|provide|solutions?|capabilities)\b'],
             'pricing': [r'\b(price|cost|pricing|how much|budget|affordable|expensive|quotation|quote|estimate)\b'],
             'contact': [r'\b(contact|get in touch|reach|phone|email|address|location|meeting|consultation)\b'],
@@ -59,25 +59,30 @@ class VenturingDigitallyAI:
                 "Hi there! Welcome to Venturing Digitally - your partner in digital transformation.\n\nI'm here to guide you through our innovative services and solutions. What would you like to know?",
                 "Greetings! Welcome to Venturing Digitally!\n\nI'm excited to help you explore our comprehensive digital services. How may I assist you today?"
             ],
+            'goodbye': [
+                "Goodbye! Thank you for visiting Venturing Digitally. I hope I was able to help you today. Feel free to come back anytime for more information about our digital solutions. Take care!",
+                "See you later! It was a pleasure assisting you with Venturing Digitally's services. Don't hesitate to return if you have more questions about our digital solutions.",
+                "Take care! Thank you for choosing Venturing Digitally. I'm always here to help you with our innovative digital transformation services whenever you need assistance."
+            ],
             'services': [
-                "We offer a comprehensive suite of digital solutions:\n\n— **Website Development** | Modern, responsive websites\n— **Mobile App Development** | iOS & Android apps\n— **AI/ML Solutions** | Intelligent automation\n— **Cloud Services** | Scalable infrastructure\n— **UI/UX Design** | User-centered design\n— **Cybersecurity** | Enterprise-grade security\n— **Data Analytics** | Business intelligence\n— **E-commerce Solutions** | Online stores\n— **Enterprise Software** | Custom business solutions\n\nEach service is tailored to help businesses grow smarter, faster, and more securely.",
-                "Our expertise spans across multiple domains:\n\n— **Web & Mobile Development** | Custom applications and responsive websites\n— **AI & Machine Learning** | Intelligent automation and predictive analytics\n— **Cloud Computing** | Scalable infrastructure and migration services\n— **Digital Marketing** | SEO, social media, and content marketing\n— **Cybersecurity** | Enterprise-grade security solutions\n— **Data Analytics** | Business intelligence and insights\n— **UI/UX Design** | User-centered design principles\n— **Enterprise Solutions** | Custom business software\n\nEach service is designed to meet your specific business needs and drive growth.",
-                "We provide end-to-end digital transformation services:\n\n— **Custom Website Development** | Modern, responsive web applications\n— **Mobile Applications** | Native and cross-platform solutions\n— **AI-Powered Solutions** | Machine learning and automation\n— **Cloud Infrastructure** | Scalable and secure hosting\n— **Modern Technologies** | React, Node.js, Python, AWS, Azure\n\nOur team specializes in cutting-edge technologies to deliver exceptional results."
+                "We offer a comprehensive suite of digital solutions:\n\n— Website Development | Modern, responsive websites\n— Mobile App Development | iOS & Android apps\n— AI/ML Solutions | Intelligent automation\n— Cloud Services | Scalable infrastructure\n— UI/UX Design | User-centered design\n— Cybersecurity | Enterprise-grade security\n— Data Analytics | Business intelligence\n— E-commerce Solutions | Online stores\n— Enterprise Software | Custom business solutions\n\nEach service is tailored to help businesses grow smarter, faster, and more securely.",
+                "Our expertise spans across multiple domains:\n\n— Web & Mobile Development | Custom applications and responsive websites\n— AI & Machine Learning | Intelligent automation and predictive analytics\n— Cloud Computing | Scalable infrastructure and migration services\n— Digital Marketing | SEO, social media, and content marketing\n— Cybersecurity | Enterprise-grade security solutions\n— Data Analytics | Business intelligence and insights\n— UI/UX Design | User-centered design principles\n— Enterprise Solutions | Custom business software\n\nEach service is designed to meet your specific business needs and drive growth.",
+                "We provide end-to-end digital transformation services:\n\n— Custom Website Development | Modern, responsive web applications\n— Mobile Applications | Native and cross-platform solutions\n— AI-Powered Solutions | Machine learning and automation\n— Cloud Infrastructure | Scalable and secure hosting\n— Modern Technologies | React, Node.js, Python, AWS, Azure\n\nOur team specializes in cutting-edge technologies to deliver exceptional results."
             ],
             'pricing': [
-                "Our pricing is competitive and flexible:\n\n— **Website Development** | Starting from $2,000\n— **Mobile Apps** | Starting from $5,000\n— **AI/ML Projects** | Starting from $8,000\n— **Cloud Solutions** | Starting from $1,500/month\n— **UI/UX Design** | Starting from $1,000\n\nWe offer **free consultations** and **custom quotes** to match your budget and requirements.",
-                "Transparent, value-based pricing packages:\n\n— **Starter Package** | $2,000-$5,000 for small projects\n— **Professional Package** | $5,000-$15,000 for medium businesses\n— **Enterprise Package** | $15,000+ for large-scale solutions\n\nAll packages include **3 months free support** and **source code ownership**.",
-                "Flexible pricing based on project complexity:\n\n— **Flexible Payment Plans** | Milestone-based billing\n— **Maintenance Packages** | Ongoing support options\n— **Custom Quotes** | Detailed breakdown in 24 hours\n— **No Hidden Costs** | Transparent pricing structure\n\nGet a **free quote** today to discuss your specific requirements."
+                "Our pricing is competitive and flexible:\n\n— Website Development | Starting from $2,000\n— Mobile Apps | Starting from $5,000\n— AI/ML Projects | Starting from $8,000\n— Cloud Solutions | Starting from $1,500/month\n— UI/UX Design | Starting from $1,000\n\nWe offer free consultations and custom quotes to match your budget and requirements.",
+                "Transparent, value-based pricing packages:\n\n— Starter Package | $2,000-$5,000 for small projects\n— Professional Package | $5,000-$15,000 for medium businesses\n— Enterprise Package | $15,000+ for large-scale solutions\n\nAll packages include 3 months free support and source code ownership.",
+                "Flexible pricing based on project complexity:\n\n— Flexible Payment Plans | Milestone-based billing\n— Maintenance Packages | Ongoing support options\n— Custom Quotes | Detailed breakdown in 24 hours\n— No Hidden Costs | Transparent pricing structure\n\nGet a free quote today to discuss your specific requirements."
             ],
             'contact': [
-                "Get in touch with us through multiple channels:\n\n— **Email** | info@venturingdigitally.com\n— **Phone** | +1-555-VENTURE\n— **Live Chat** | Available 24/7\n— **Schedule Meeting** | Free consultation\n— **Office** | Multiple locations\n\nWe respond within **2 hours** during business hours!",
-                "Connect with our team:\n\n— **Website** | venturingdigitally.com/contact\n— **WhatsApp** | +1-555-VENTURE\n— **Email** | hello@venturingdigitally.com\n— **LinkedIn** | /company/venturing-digitally\n— **Book Demo** | Free 30-minute consultation\n\nOur experts are ready to discuss your project requirements.",
-                "Reach out to us:\n\n— **Call** | +1-555-VENTURE (Mon-Fri, 9 AM-6 PM)\n— **Email** | contact@venturingdigitally.com\n— **Chat** | Live support available\n— **Meeting** | Free consultation booking\n— **Visit** | Major cities worldwide\n\nWe're here to help 24/7 with your digital transformation needs."
+                "Get in touch with us through multiple channels:\n\n— Email | info@venturingdigitally.com\n— Phone | +91-7543081110 VENTURE\n— Live Chat | Available 24/7\n— Schedule Meeting | Free consultation\n— Office | Multiple locations\n\nWe respond within 2 hours during business hours!",
+                "Connect with our team:\n\n— Website | venturingdigitally.com/contact\n— WhatsApp | +91-7543081110 VENTURE\n— Email | hello@venturingdigitally.com\n— LinkedIn | /company/venturing-digitally\n— Book Demo | Free 30-minute consultation\n\nOur experts are ready to discuss your project requirements.",
+                "Reach out to us:\n\n— Call | +91-7543081110  VENTURE (Mon-Fri, 10 AM-7 PM)\n— Email | contact@venturingdigitally.com\n— Chat | Live support available\n— Meeting | Free consultation booking\n— Visit | Major cities worldwide\n\nWe're here to help 24/7 with your digital transformation needs."
             ],
             'technology': [
-                "We use cutting-edge technologies in our development:\n\n— **Frontend** | React, Vue.js, Angular, Next.js\n— **Backend** | Node.js, Python, PHP, Java, .NET\n— **Mobile** | React Native, Flutter, Swift, Kotlin\n— **Cloud** | AWS, Azure, Google Cloud, Docker\n— **AI/ML** | TensorFlow, PyTorch, OpenAI\n— **Database** | MongoDB, PostgreSQL, MySQL, Redis\n— **Security** | OWASP standards, SSL, encryption\n\nOur team stays updated with the latest technology trends to deliver innovative solutions.",
-                "Our comprehensive tech stack includes:\n\n— **Modern Frameworks** | React, Vue, Angular\n— **Robust Backends** | Node.js, Python, PHP\n— **Mobile Technologies** | React Native, Flutter\n— **Cloud Platforms** | AWS, Azure, GCP\n— **AI/ML Tools** | TensorFlow, PyTorch\n— **Databases** | MongoDB, PostgreSQL\n— **DevOps Tools** | Docker, Kubernetes, CI/CD\n\nWe leverage these technologies to build scalable, secure, and high-performance applications.",
-                "Latest technologies we specialize in:\n\n— **Web Development** | React, Next.js, TypeScript\n— **Mobile Development** | React Native, Flutter\n— **Backend Services** | Node.js, Python, FastAPI\n— **Cloud Computing** | AWS, Azure, serverless\n— **Artificial Intelligence** | OpenAI, TensorFlow, custom models\n— **Data Management** | PostgreSQL, MongoDB, Redis\n— **Security** | OAuth, JWT, encryption\n\nOur expertise in these technologies ensures we deliver cutting-edge solutions for your business."
+                "We use cutting-edge technologies in our development:\n\n— Frontend | React, Vue.js, Angular, Next.js\n— Backend | Node.js, Python, PHP, Java, .NET\n— Mobile | React Native, Flutter, Swift, Kotlin\n— Cloud | AWS, Azure, Google Cloud, Docker\n— AI/ML | TensorFlow, PyTorch, OpenAI\n— Database | MongoDB, PostgreSQL, MySQL, Redis\n— Security | OWASP standards, SSL, encryption\n\nOur team stays updated with the latest technology trends to deliver innovative solutions.",
+                "Our comprehensive tech stack includes:\n\n— Modern Frameworks | React, Vue, Angular\n— Robust Backends | Node.js, Python, PHP\n— Mobile Technologies | React Native, Flutter\n— Cloud Platforms | AWS, Azure, GCP\n— AI/ML Tools | TensorFlow, PyTorch\n— Databases | MongoDB, PostgreSQL\n— DevOps Tools | Docker, Kubernetes, CI/CD\n\nWe leverage these technologies to build scalable, secure, and high-performance applications.",
+                "Latest technologies we specialize in:\n\n— Web Development | React, Next.js, TypeScript\n— Mobile Development | React Native, Flutter\n— Backend Services | Node.js, Python, FastAPI\n— Cloud Computing | AWS, Azure, serverless\n— Artificial Intelligence | OpenAI, TensorFlow, custom models\n— Data Management | PostgreSQL, MongoDB, Redis\n— Security | OAuth, JWT, encryption\n\nOur expertise in these technologies ensures we deliver cutting-edge solutions for your business."
             ]
         }
     
@@ -137,8 +142,8 @@ class VenturingDigitallyAI:
     
     def analyze_sentiment(self, query: str) -> str:
         """Analyze sentiment of the query"""
-        positive_words = ['good', 'great', 'excellent', 'amazing', 'wonderful', 'impressed', 'love', 'like']
-        negative_words = ['bad', 'terrible', 'awful', 'hate', 'disappointed', 'frustrated', 'angry', 'upset']
+        positive_words = ['best','perfect',"awesome",'good morning','good evening','good night','good', 'great', 'excellent', 'amazing', 'wonderful', 'impressed', 'love', 'like']
+        negative_words = ['complecated','sad','mad','wrost','bad', 'terrible', 'awful', 'hate', 'disappointed', 'frustrated', 'angry', 'upset']
         
         positive_count = sum(1 for word in positive_words if word in query)
         negative_count = sum(1 for word in negative_words if word in query)
@@ -170,7 +175,7 @@ class VenturingDigitallyAI:
         
         # Handle different intents
         if intent == 'greeting':
-            return self.generate_greeting_response(sentiment)
+            return self.generate_greeting_response(sentiment, analysis['original_query'])
         elif intent == 'services':
             return self.generate_services_response(services, industries, relevant_chunks)
         elif intent == 'pricing':
@@ -190,10 +195,25 @@ class VenturingDigitallyAI:
         else:
             return self.generate_general_response(services, industries, relevant_chunks)
     
-    def generate_greeting_response(self, sentiment: str) -> str:
+    def generate_greeting_response(self, sentiment: str, original_query: str = '') -> str:
         """Generate greeting response"""
         import random
-        if sentiment == 'positive':
+        query_lower = original_query.lower()
+        
+        # Check for specific greeting types
+        if any(word in query_lower for word in ["good morning", "morning"]):
+            return "Good morning! Welcome to Venturing Digitally. I hope you're having a wonderful day! I'm here to help you discover our innovative digital solutions. How can I assist you today?"
+        elif any(word in query_lower for word in ["good afternoon", "afternoon"]):
+            return "Good afternoon! Welcome to Venturing Digitally. I'm excited to help you explore our comprehensive digital services. What would you like to know about our solutions?"
+        elif any(word in query_lower for word in ["good evening", "evening"]):
+            return "Good evening! Welcome to Venturing Digitally. I'm here to guide you through our cutting-edge digital transformation services. How may I help you today?"
+        elif any(word in query_lower for word in ["good night", "night"]):
+            return "Good night! Thank you for visiting Venturing Digitally. I'm here to help you with our digital solutions whenever you need assistance. Have a great night!"
+        elif any(word in query_lower for word in ["bye", "goodbye", "see you", "take care", "farewell"]):
+            return random.choice(self.response_templates['goodbye'])
+        elif any(word in query_lower for word in ["namaste", "namaskar"]):
+            return "Namaste! Welcome to Venturing Digitally. I'm delighted to assist you with our comprehensive digital solutions. How can I help you today?"
+        elif sentiment == 'positive':
             return random.choice([
                 "Hello! Thank you for your positive energy! I'm here to help you learn about Venturing Digitally's comprehensive digital solutions. How can I assist you today?",
                 "Hi there! Your enthusiasm is contagious! I'm excited to show you all the amazing digital solutions we offer at Venturing Digitally. What would you like to explore?",
@@ -207,19 +227,19 @@ class VenturingDigitallyAI:
         import random
         if services:
             service_descriptions = {
-                'website_development': "— **Custom Website Development** | Modern, responsive websites with React, Angular, and cutting-edge technologies",
-                'mobile_development': "— **Mobile App Development** | Native and cross-platform apps for iOS and Android with React Native and Flutter",
-                'ui_ux_design': "— **UI/UX Design** | User-centered design with wireframing, prototyping, and modern design principles",
-                'enterprise_software': "— **Enterprise Software** | ERP, CRM, and business management solutions tailored to your needs",
-                'custom_software': "— **Custom Software** | Bespoke software development designed specifically for your business requirements",
-                'ai_ml': "— **AI/ML Solutions** | Artificial Intelligence and Machine Learning for automation, insights, and intelligent systems",
-                'cloud_services': "— **Cloud Services** | Cloud migration, infrastructure, and computing with AWS, Azure, and Google Cloud",
-                'digital_marketing': "— **Digital Marketing** | Comprehensive online marketing including SEO, social media, and content marketing",
-                'seo': "— **SEO Services** | Search Engine Optimization to improve your online visibility and organic traffic",
-                'cybersecurity': "— **Cybersecurity** | Enterprise-grade security including auditing, penetration testing, and protection",
-                'data_analytics': "— **Data Analytics** | Business intelligence and data-driven solutions for informed decision making",
-                'qa_testing': "— **QA Testing** | Quality assurance and comprehensive software testing services",
-                'support_maintenance': "— **Support & Maintenance** | 24/7 technical support and ongoing software optimization"
+                'website_development': "Custom Website Development | Modern, responsive websites with React, Angular, and cutting-edge technologies",
+                'mobile_development': "Mobile App Development | Native and cross-platform apps for iOS and Android with React Native and Flutter",
+                'ui_ux_design': "UI/UX Design | User-centered design with wireframing, prototyping, and modern design principles",
+                'enterprise_software': "Enterprise Software | ERP, CRM, and business management solutions tailored to your needs",
+                'custom_software': "Custom Software | Bespoke software development designed specifically for your business requirements",
+                'ai_ml': "— AI/ML Solutions | Artificial Intelligence and Machine Learning for automation, insights, and intelligent systems",
+                'cloud_services': "Cloud Services | Cloud migration, infrastructure, and computing with AWS, Azure, and Google Cloud",
+                'digital_marketing': "Digital Marketing | Comprehensive online marketing including SEO, social media, and content marketing",
+                'seo': "— SEO Services | Search Engine Optimization to improve your online visibility and organic traffic",
+                'cybersecurity': "Cybersecurity | Enterprise-grade security including auditing, penetration testing, and protection",
+                'data_analytics': "Data Analytics | Business intelligence and data-driven solutions for informed decision making",
+                'qa_testing': "QA Testing | Quality assurance and comprehensive software testing services",
+                'support_maintenance': "Support & Maintenance | 24/7 technical support and ongoing software optimization"
             }
             
             response = "Based on your interest, here are our relevant services:\n\n"
@@ -228,7 +248,7 @@ class VenturingDigitallyAI:
                     response += f"{service_descriptions[service]}\n"
             
             if industries:
-                response += f"\nWe also have specialized solutions for the **{', '.join(industries)}** industry."
+                response += f"\nWe also have specialized solutions for the {', '.join(industries)} industry."
             
             response += "\n\nEach service is designed to help your business grow and succeed in the digital world."
             
@@ -240,7 +260,7 @@ class VenturingDigitallyAI:
         """Generate pricing response"""
         import random
         if sentiment == 'negative':
-            return "I understand budget is a concern. We offer competitive pricing and flexible packages to suit different budgets. We provide **free consultations** to discuss your requirements and offer customized pricing solutions that deliver value for your investment. Let's find a solution that works for you!"
+            return "I understand budget is a concern. We offer competitive pricing and flexible packages to suit different budgets. We provide free consultations to discuss your requirements and offer customized pricing solutions that deliver value for your investment. Let's find a solution that works for you!"
         else:
             return random.choice(self.response_templates['pricing'])
     
@@ -257,11 +277,11 @@ class VenturingDigitallyAI:
         """Generate technology response"""
         import random
         technologies = {
-            'website_development': "— **Frontend** | React, Angular, Vue.js, Next.js\n— **Backend** | Node.js, Python, PHP",
-            'mobile_development': "— **Cross-platform** | React Native, Flutter\n— **Native** | Swift, Kotlin",
-            'ai_ml': "— **AI/ML** | Python, TensorFlow, PyTorch, OpenAI, Machine Learning",
-            'cloud_services': "— **Cloud** | AWS, Azure, Google Cloud, Docker, Kubernetes",
-            'data_analytics': "— **Analytics** | Python, R, Tableau, Power BI, SQL, Machine Learning"
+            'website_development': "Frontend | React, Angular, Vue.js, Next.js\n Backend | Node.js, Python, PHP",
+            'mobile_development': "Cross-platform | React Native, Flutter\n— Native | Swift, Kotlin",
+            'ai_ml': "AI/ML | Python, TensorFlow, PyTorch, OpenAI, Machine Learning",
+            'cloud_services': "Cloud | AWS, Azure, Google Cloud, Docker, Kubernetes",
+            'data_analytics': "Analytics | Python, R, Tableau, Power BI, SQL, Machine Learning"
         }
         
         if services:

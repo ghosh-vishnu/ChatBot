@@ -5,9 +5,9 @@ from typing import List
 from fastapi import APIRouter
 from openai import OpenAI
 
-from .schemas import ChatRequest, ChatResponse
-from .config import OPENAI_API_KEY, CHAT_MODEL, TOP_K, MAX_CONTEXT_CHARS
-from .db import query_similar
+from schemas import ChatRequest, ChatResponse
+from config import OPENAI_API_KEY, CHAT_MODEL, TOP_K, MAX_CONTEXT_CHARS
+from db import query_similar
 
 
 router = APIRouter()
@@ -44,13 +44,13 @@ def analyze_query_intent(query: str) -> dict:
     
     # Intent classification
     intent = "general"
-    if any(word in query_lower for word in ["hi", "hello", "hey", "greetings"]):
+    if any(word in query_lower for word in ["hi", "hello", "hey", "greetings", "hii", "good morning", "good afternoon", "good evening", "good night", "namaste", "namaskar", "bye", "goodbye", "see you", "take care", "farewell"]):
         intent = "greeting"
-    elif any(word in query_lower for word in ["company", "name", "what is", "your name"]):
+    elif any(word in query_lower for word in ["company", "name", "what is", "your name","compny"]):
         intent = "company_info"
-    elif any(word in query_lower for word in ["services", "offer", "what do you", "whats your services"]):
+    elif any(word in query_lower for word in ["service","services", "offer", "what do you", "whats your services"]):
         intent = "services"
-    elif any(word in query_lower for word in ["pricing", "cost", "price", "affordable"]):
+    elif any(word in query_lower for word in ["pricing", "cost", "price", "affordable","amount","budget","quote","estimate","how much","how much is","how much does","how much do","how much the","how much the project","how much the project will cost","how much the project will cost"]):
         intent = "pricing"
     elif any(word in query_lower for word in ["support", "help", "assistance"]):
         intent = "support"
@@ -58,7 +58,7 @@ def analyze_query_intent(query: str) -> dict:
         intent = "team"
     elif any(word in query_lower for word in ["contact", "reach", "get in touch", "location", "where"]):
         intent = "contact"
-    elif any(word in query_lower for word in ["faq", "questions", "answers"]):
+    elif any(word in query_lower for word in ["faq", "questions", "answers","query"]):
         intent = "faq"
     
     # Extract key terms
@@ -169,7 +169,7 @@ def generate_intelligent_response(query: str, relevant_chunks: list, intent_info
     
     # Try to use local LLM for advanced responses
     try:
-        from .local_llm import generate_ai_response, analyze_sentiment, extract_key_entities
+        from local_llm import generate_ai_response, analyze_sentiment, extract_key_entities
         
         # Analyze user sentiment
         sentiment = analyze_sentiment(query)
@@ -198,7 +198,23 @@ def generate_intelligent_response(query: str, relevant_chunks: list, intent_info
     
     # Fallback: Rule-based intelligent responses
     if intent_info["intent"] == "greeting":
-        return "Hello! Welcome to Venturing Digitally. I'm here to help you learn about our services and answer any questions you might have. How can I assist you today?"
+        query_lower = query.lower()
+        
+        # Check for specific greeting types
+        if any(word in query_lower for word in ["good morning", "morning"]):
+            return "Good morning! Welcome to Venturing Digitally. I hope you're having a wonderful day! I'm here to help you discover our innovative digital solutions. How can I assist you today?"
+        elif any(word in query_lower for word in ["good afternoon", "afternoon"]):
+            return "Good afternoon! Welcome to Venturing Digitally. I'm excited to help you explore our comprehensive digital services. What would you like to know about our solutions?"
+        elif any(word in query_lower for word in ["good evening", "evening"]):
+            return "Good evening! Welcome to Venturing Digitally. I'm here to guide you through our cutting-edge digital transformation services. How may I help you today?"
+        elif any(word in query_lower for word in ["good night", "night"]):
+            return "Good night! Thank you for visiting Venturing Digitally. I'm here to help you with our digital solutions whenever you need assistance. Have a great night!"
+        elif any(word in query_lower for word in ["by","bye", "goodbye", "see you", "take care", "farewell"]):
+            return "Goodbye! Thank you for visiting Venturing Digitally. I hope I was able to help you today. Feel free to come back anytime for more information about our digital solutions. Take care!"
+        elif any(word in query_lower for word in ["namaste", "namaskar"]):
+            return "Namaste! Welcome to Venturing Digitally. I'm delighted to assist you with our comprehensive digital solutions. How can I help you today?"
+        else:
+            return "Hello! Welcome to Venturing Digitally. I'm here to help you learn about our services and answer any questions you might have. How can I assist you today?"
     
     if not relevant_chunks:
         return "I apologize, but I couldn't find specific information about that topic on our website. Could you please rephrase your question or ask about our services, pricing, or team?"
@@ -268,7 +284,7 @@ def generate_intelligent_response_with_memory(query: str, relevant_chunks: list,
     
     # Try to use local LLM for advanced responses
     try:
-        from .local_llm import generate_ai_response, analyze_sentiment, extract_key_entities
+        from local_llm import generate_ai_response, analyze_sentiment, extract_key_entities
         
         # Analyze user sentiment
         sentiment = analyze_sentiment(query)
@@ -402,38 +418,93 @@ def find_relevant_content_advanced(query: str, docs: list, analysis: dict) -> li
 def chat(req: ChatRequest, user_id: str = "default"):
     if not OPENAI_API_KEY:
         # Advanced AI-powered analysis for Venturing Digitally
-        from .venturing_ai_model import venturing_ai
-        from .conversation_memory import conversation_memory
+        from venturing_ai_model import venturing_ai
+        from conversation_memory import conversation_memory
+        from faq_handler import faq_handler
+        
+        # Step 1: Check FAQ first for quick responses
+        try:
+            faq_response = faq_handler.handle_faq_query(req.query)
+            
+            if faq_response["type"] == "faq_answer":
+                # Direct FAQ match found
+                faq_suggestions = []
+                if "suggestions" in faq_response:
+                    faq_suggestions = [{"text": s, "type": "faq", "category": faq_response.get("category", "")} for s in faq_response["suggestions"]]
+                
+                return ChatResponse(
+                    answer=faq_response["answer"],
+                    sources=[f"FAQ - {faq_response['title']}"],
+                    suggestions=faq_suggestions
+                )
+            
+        except Exception as e:
+            print(f"FAQ handler error: {e}")
+            # Continue with normal processing if FAQ fails
         
         # Get conversation context
         context = conversation_memory.get_conversation_context(user_id)
         conversation_summary = conversation_memory.get_conversation_summary(user_id)
         
         # Load all chunks directly
-        from .db import _load_index
+        from db import _load_index
         _, docs = _load_index()
         
         if not docs:
+            # If no website data, try FAQ suggestions
+            if faq_response["type"] == "faq_suggestions":
+                return ChatResponse(
+                    answer=faq_response["message"],
+                    sources=["FAQ Database"],
+                    suggestions=faq_response.get("suggested_questions", [])
+                )
+            
+            # For greetings, provide appropriate response even without docs
+            analysis = venturing_ai.analyze_query(req.query)
+            if analysis['intent'] == 'greeting':
+                answer = venturing_ai.generate_greeting_response(analysis['sentiment'], req.query)
+                return ChatResponse(
+                    answer=answer,
+                    sources=["Venturing Digitally"],
+                    suggestions=[]
+                )
+            
             return ChatResponse(
                 answer="Sorry, I couldn't find this information on our website.",
                 sources=[],
             )
         
-        # Step 1: Advanced AI analysis of the query
+        # Step 2: Advanced AI analysis of the query
         analysis = venturing_ai.analyze_query(req.query)
         
         # Add conversation context to analysis
         if conversation_summary:
             analysis['conversation_context'] = conversation_summary
         
-        # Step 2: Find relevant content using advanced search
+        # Step 3: Find relevant content using advanced search
         relevant_chunks = find_relevant_content_advanced(req.query, docs, analysis)
         
-        # Step 3: Generate intelligent response using advanced AI model
+        # Step 4: Generate intelligent response using advanced AI model
         answer = venturing_ai.generate_response(analysis, relevant_chunks)
         
-        # Step 4: Generate suggestions
-        from .suggestion_engine import suggestion_engine
+        # Step 5: If no good answer from website content, try FAQ (but not for greetings)
+        if analysis['intent'] != 'greeting' and ("Sorry, I couldn't find" in answer or len(answer.strip()) < 50):
+            try:
+                if faq_response["type"] == "faq_suggestions":
+                    faq_suggestions = [{"text": s["question"], "type": "faq", "category": s.get("category", "")} for s in faq_response["suggestions"]]
+                    
+                    return ChatResponse(
+                        answer=f"I found some related questions that might help:\n\n" + 
+                               "\n".join([f"• {s['question']}" for s in faq_response["suggestions"]]),
+                        sources=["FAQ Database"],
+                        suggestions=faq_suggestions
+                    )
+            except Exception as e:
+                print(f"FAQ fallback error: {e}")
+                # Continue with normal response
+        
+        # Step 6: Generate suggestions
+        from suggestion_engine import suggestion_engine
         conversation_history = context.get('conversation', [])
         suggestions = suggestion_engine.generate_suggestions(
             req.query, 
@@ -443,7 +514,16 @@ def chat(req: ChatRequest, user_id: str = "default"):
             conversation_history
         )
         
-        # Step 5: Store conversation in memory
+        # Add FAQ suggestions if available
+        try:
+            if faq_response["type"] == "faq_suggestions":
+                faq_suggestions = [{"text": s["question"], "type": "faq", "category": s.get("category", "")} for s in faq_response["suggestions"]]
+                suggestions.extend(faq_suggestions[:2])  # Add top 2 FAQ suggestions
+        except Exception as e:
+            print(f"FAQ suggestions error: {e}")
+            # Continue without FAQ suggestions
+        
+        # Step 7: Store conversation in memory
         conversation_memory.add_to_conversation(
             user_id, req.query, answer, analysis['intent']
         )
@@ -476,5 +556,28 @@ def chat(req: ChatRequest, user_id: str = "default"):
     suggestions = suggestion_engine.get_quick_actions()
     
     return ChatResponse(answer=answer.strip(), sources=sources, suggestions=suggestions)
+
+
+@router.get("/faq/categories")
+def get_faq_categories():
+    """Get all FAQ categories"""
+    from .faq_handler import faq_handler
+    return {"categories": faq_handler.get_all_categories()}
+
+
+@router.get("/faq/category/{category}")
+def get_faq_by_category(category: str):
+    """Get FAQs by category"""
+    from .faq_handler import faq_handler
+    questions = faq_handler.get_category_questions(category)
+    return {"category": category, "questions": questions}
+
+
+@router.post("/faq/search")
+def search_faqs(query: str, category: str = None):
+    """Search FAQs by query"""
+    from .faq_handler import faq_handler
+    results = faq_handler.search_faqs(query, category)
+    return {"query": query, "results": results}
 
 

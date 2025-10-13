@@ -4,8 +4,8 @@ import json
 import os
 from typing import List, Dict, Any
 
-from .db import upsert_chunks
-from .embedding import embed_texts
+from db import upsert_chunks
+from embedding import embed_texts
 
 def ingest_jsonl(file_path: str) -> int:
     """Ingest data from JSONL file"""
@@ -21,7 +21,7 @@ def ingest_jsonl(file_path: str) -> int:
     
     if chunks:
         upsert_chunks(chunks)
-        print(f"✅ Ingested {len(chunks)} chunks from {file_path}")
+        print(f"Ingested {len(chunks)} chunks from {file_path}")
     
     return len(chunks)
 
@@ -40,7 +40,7 @@ def ingest_json(file_path: str) -> int:
     
     if chunks:
         upsert_chunks(chunks)
-        print(f"✅ Ingested {len(chunks)} chunks from {file_path}")
+        print(f"Ingested {len(chunks)} chunks from {file_path}")
     
     return len(chunks)
 

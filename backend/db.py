@@ -6,8 +6,8 @@ from typing import List, Dict, Any
 
 import numpy as np
 
-from .config import DATA_DIR
-from .embedding import embed_texts
+from config import DATA_DIR
+from embedding import embed_texts
 
 
 INDEX_PATH = os.path.join(DATA_DIR, "index.npy")

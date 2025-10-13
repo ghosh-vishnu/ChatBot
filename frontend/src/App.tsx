@@ -4,8 +4,11 @@ import './index.css'
 
 export default function App() {
   return (
-    <div className="fixed bottom-6 right-6">
-      <ChatWidget />
+    <div>
+      {/* Only Chat Widget for Website Visitors */}
+      <div className="fixed bottom-6 right-6">
+        <ChatWidget />
+      </div>
     </div>
   )
 }
