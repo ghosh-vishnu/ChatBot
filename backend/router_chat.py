@@ -8,9 +8,130 @@ from openai import OpenAI
 from schemas import ChatRequest, ChatResponse
 from config import OPENAI_API_KEY, CHAT_MODEL, TOP_K, MAX_CONTEXT_CHARS
 from db import query_similar
+import json
+import os
 
 
 router = APIRouter()
+
+
+def load_faqs():
+    """Load FAQs from database"""
+    try:
+        faqs_file = "data/faqs.json"
+        if os.path.exists(faqs_file):
+            with open(faqs_file, 'r') as f:
+                return json.load(f)
+        return []
+    except Exception as e:
+        print(f"Error loading FAQs: {e}")
+        return []
+
+
+def find_matching_faq(query: str, faqs: list) -> dict:
+    """Find the most relevant FAQ based on user query"""
+    query_lower = query.lower().strip()
+    best_match = None
+    best_score = 0
+    
+    # Skip FAQ matching for greetings and very short queries
+    greeting_words = ["hi", "hello", "hey", "good morning", "good afternoon", "good evening", "namaste", "namaskar"]
+    if any(greeting in query_lower for greeting in greeting_words) or len(query_lower) < 3:
+        print(f"Skipping FAQ search for greeting/short query: '{query_lower}'")
+        return None
+    
+    print(f"Searching for: '{query_lower}' in {len(faqs)} FAQs")
+    
+    for faq in faqs:
+        score = 0
+        question = faq.get("question", "").lower().strip()
+        answer = faq.get("answer", "").lower().strip()
+        
+        print(f"Checking FAQ: '{question}'")
+        
+        # Check for exact question match (highest priority)
+        if query_lower == question:
+            score += 100
+            print(f"Exact match found: {question}")
+        
+        # Check if query contains the question
+        elif query_lower in question:
+            score += 50
+            print(f"Query contains question: {question}")
+        
+        # Check if question contains the query
+        elif question in query_lower:
+            score += 40
+            print(f"Question contains query: {question}")
+        
+        # Check for keyword matches in question (exclude common words)
+        common_words = ["what", "are", "is", "the", "your", "you", "do", "can", "will", "how", "when", "where", "why", "who", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by"]
+        query_words = [word for word in query_lower.split() if len(word) > 2 and word not in common_words]
+        question_words = [word for word in question.split() if len(word) > 2 and word not in common_words]
+        
+        # Count matching words
+        matching_words = 0
+        for word in query_words:
+            if word in question_words:
+                matching_words += 1
+                score += 5
+                print(f"Word match: '{word}' in '{question}'")
+        
+        # If more than 50% words match, boost score
+        if len(query_words) > 0 and matching_words / len(query_words) > 0.5:
+            score += 20
+            print(f"High word match ratio: {matching_words}/{len(query_words)}")
+        
+        # Check for keyword matches in answer
+        for word in query_words:
+            if word in answer:
+                score += 2
+        
+        # Check for category relevance
+        category = faq.get("category", "").lower()
+        custom_category = faq.get("customCategory", "").lower()
+        
+        for word in query_words:
+            if word in category or word in custom_category:
+                score += 3
+        
+        # Check for partial word matches
+        for word in query_words:
+            for q_word in question_words:
+                if word in q_word or q_word in word:
+                    score += 1
+        
+        # Special handling for "what is" type questions
+        if query_lower.startswith("what is") and "what is" in question:
+            score += 15
+            print(f"What is question match: {question}")
+        
+        # Special handling for time-related questions
+        if any(word in query_lower for word in ["today", "tomorrow", "yesterday"]) and any(word in question for word in ["today", "tomorrow", "yesterday"]):
+            score += 10
+            print(f"Time-related question match: {question}")
+        
+        print(f"FAQ '{question}' score: {score}")
+        
+        if score > best_score:
+            best_score = score
+            best_match = faq
+    
+    print(f"Best match: {best_match['question'] if best_match else 'None'} with score: {best_score}")
+    
+    # Only return match if score is high enough (increased threshold for better accuracy)
+    return best_match if best_score >= 10 else None
+
+
+def save_faqs(faqs: list):
+    """Save FAQs to database"""
+    try:
+        os.makedirs("data", exist_ok=True)
+        faqs_file = "data/faqs.json"
+        with open(faqs_file, 'w') as f:
+            json.dump(faqs, f, indent=2)
+    except Exception as e:
+        print(f"Error saving FAQs: {e}")
 
 
 SYSTEM_PROMPT = (
@@ -42,6 +163,8 @@ def analyze_query_intent(query: str) -> dict:
     """Analyze user query to understand intent and extract key information"""
     query_lower = query.lower()
     
+    print(f"Analyzing query: '{query}' -> '{query_lower}'")
+    
     # Intent classification
     intent = "general"
     if any(word in query_lower for word in ["hi", "hello", "hey", "greetings", "hii", "good morning", "good afternoon", "good evening", "good night", "namaste", "namaskar", "bye", "goodbye", "see you", "take care", "farewell"]):
@@ -58,8 +181,9 @@ def analyze_query_intent(query: str) -> dict:
         intent = "team"
     elif any(word in query_lower for word in ["contact", "reach", "get in touch", "location", "where"]):
         intent = "contact"
-    elif any(word in query_lower for word in ["faq", "questions", "answers","query"]):
+    elif any(word in query_lower for word in ["faq", "questions", "answers","query", "kaise", "ho", "thik", "hu"]) or (query_lower.startswith("what is") and any(word in query_lower for word in ["today", "tomorrow", "yesterday"])):
         intent = "faq"
+        print(f"FAQ intent detected for: '{query}'")
     
     # Extract key terms
     key_terms = []
@@ -257,7 +381,48 @@ def generate_intelligent_response(query: str, relevant_chunks: list, intent_info
         return "You can get in touch with us through our website. We have a 'Get Started' and 'Get in Touch' section available where you can schedule a meeting with us. You can also reach out to us directly for any inquiries or to discuss your project requirements."
     
     elif intent_info["intent"] == "faq":
-        return "We have Frequently Asked Questions covering topics like:\n\n• What kind of technologies do you specialize in?\n• How long does a typical project take?\n• Do you offer support and maintenance after the project is launched?\n• How do you ensure the quality of your work?\n• Can you work with existing codebases?\n\nFeel free to ask me any specific questions you might have!"
+        # Load FAQs from database
+        try:
+            faqs = load_faqs()
+            print(f"Loaded {len(faqs)} FAQs")
+            
+            if not faqs:
+                return "We have Frequently Asked Questions covering various topics. However, no FAQs are currently available in our database. Please feel free to ask me any specific questions you might have!"
+            
+            # Try to find matching FAQ
+            matching_faq = find_matching_faq(query, faqs)
+            
+            if matching_faq:
+                print(f"Found matching FAQ: {matching_faq['question']}")
+                # Update views count
+                matching_faq["views"] = matching_faq.get("views", 0) + 1
+                save_faqs(faqs)
+                
+                # Return the FAQ answer
+                category_name = matching_faq.get("customCategory") if matching_faq.get("category") == "Custom" else matching_faq.get("category", "General")
+                return f"**{matching_faq['question']}**\n\n{matching_faq['answer']}\n\n*Category: {category_name}*"
+            else:
+                print("No matching FAQ found")
+                # Show available FAQ categories and questions
+                categories = {}
+                for faq in faqs:
+                    cat = faq.get("customCategory") if faq.get("category") == "Custom" else faq.get("category", "General")
+                    if cat not in categories:
+                        categories[cat] = []
+                    categories[cat].append(faq["question"])
+                
+                response = "Here are our Frequently Asked Questions:\n\n"
+                for category, questions in categories.items():
+                    response += f"**{category}:**\n"
+                    for question in questions[:3]:  # Show max 3 questions per category
+                        response += f"• {question}\n"
+                    response += "\n"
+                
+                response += "Feel free to ask me any of these questions or ask something else!"
+                return response
+        except Exception as e:
+            print(f"Error in FAQ handling: {e}")
+            return "I apologize, but I'm having trouble accessing our FAQ database right now. Please try again later or contact our support team."
     
     else:
         # General response - provide most relevant information
@@ -416,30 +581,98 @@ def find_relevant_content_advanced(query: str, docs: list, analysis: dict) -> li
 
 @router.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest, user_id: str = "default"):
+    print(f"Chat request: '{req.query}'")
     if not OPENAI_API_KEY:
+        print("Using local AI model path")
         # Advanced AI-powered analysis for Venturing Digitally
         from venturing_ai_model import venturing_ai
         from conversation_memory import conversation_memory
         from faq_handler import faq_handler
         
-        # Step 1: Check FAQ first for quick responses
+        # Step 0: Check for greetings first (before FAQ check)
+        greeting_words = ["hi", "hello", "hey", "good morning", "good afternoon", "good evening", "namaste", "namaskar"]
+        query_lower = req.query.lower().strip()
+        
+        if any(greeting in query_lower for greeting in greeting_words):
+            print(f"Detected greeting: '{req.query}'")
+            # Get conversation context
+            context = conversation_memory.get_conversation_context(user_id)
+            conversation_summary = conversation_memory.get_conversation_summary(user_id)
+            
+            # Generate greeting response
+            analysis = venturing_ai.analyze_query(req.query)
+            answer = venturing_ai.generate_greeting_response(analysis['sentiment'], req.query)
+            
+            # Generate suggestions
+            from suggestion_engine import suggestion_engine
+            conversation_history = context.get('conversation', [])
+            suggestions = suggestion_engine.generate_suggestions(
+                req.query, 
+                analysis['intent'], 
+                analysis['services'], 
+                analysis['industries'],
+                conversation_history
+            )
+            
+            # Store conversation in memory
+            conversation_memory.add_to_conversation(
+                user_id, req.query, answer, analysis['intent']
+            )
+            
+            return ChatResponse(
+                answer=answer,
+                sources=["Venturing Digitally"],
+                suggestions=suggestions
+            )
+        
+        # Step 1: Check FAQs for non-greeting queries
+        faq_response = None
         try:
+            print(f"Checking FAQs for: '{req.query}'")
+            
+            # First check database FAQs
+            faqs = load_faqs()
+            print(f"📚 Loaded {len(faqs)} database FAQs")
+            
+            if faqs:
+                # Try to find matching FAQ in database
+                matching_faq = find_matching_faq(req.query, faqs)
+                
+                if matching_faq:
+                    print(f"Found matching database FAQ: {matching_faq['question']}")
+                    # Update views count
+                    matching_faq["views"] = matching_faq.get("views", 0) + 1
+                    save_faqs(faqs)
+                    
+                    # Return the FAQ answer
+                    category_name = matching_faq.get("customCategory") if matching_faq.get("category") == "Custom" else matching_faq.get("category", "General")
+                    
+                    return ChatResponse(
+                        answer=matching_faq['answer'],
+                        sources=[f"FAQ - {category_name}"],
+                        suggestions=[]
+                    )
+                else:
+                    print("No matching FAQ found in database")
+            else:
+                print("No FAQs found in database")
+            
+            # If no database FAQ match, try local FAQs
+            print(f"Checking local FAQs for: '{req.query}'")
             faq_response = faq_handler.handle_faq_query(req.query)
             
             if faq_response["type"] == "faq_answer":
-                # Direct FAQ match found
-                faq_suggestions = []
-                if "suggestions" in faq_response:
-                    faq_suggestions = [{"text": s, "type": "faq", "category": faq_response.get("category", "")} for s in faq_response["suggestions"]]
-                
+                print(f"Found matching local FAQ: {faq_response.get('title', 'Unknown')}")
                 return ChatResponse(
                     answer=faq_response["answer"],
-                    sources=[f"FAQ - {faq_response['title']}"],
-                    suggestions=faq_suggestions
+                    sources=[f"FAQ - {faq_response.get('title', 'General')}"],
+                    suggestions=[]
                 )
+            else:
+                print("No matching local FAQ found")
             
         except Exception as e:
-            print(f"FAQ handler error: {e}")
+            print(f"FAQ error: {e}")
             # Continue with normal processing if FAQ fails
         
         # Get conversation context
@@ -452,11 +685,23 @@ def chat(req: ChatRequest, user_id: str = "default"):
         
         if not docs:
             # If no website data, try FAQ suggestions
-            if faq_response["type"] == "faq_suggestions":
+            if faq_response and faq_response.get("type") == "faq_suggestions":
+                # Convert string suggestions to proper format
+                suggestions = []
+                for suggestion in faq_response.get("suggested_questions", []):
+                    if isinstance(suggestion, str):
+                        suggestions.append({
+                            "text": suggestion,
+                            "type": "faq",
+                            "category": "general"
+                        })
+                    else:
+                        suggestions.append(suggestion)
+                
                 return ChatResponse(
                     answer=faq_response["message"],
                     sources=["FAQ Database"],
-                    suggestions=faq_response.get("suggested_questions", [])
+                    suggestions=suggestions
                 )
             
             # For greetings, provide appropriate response even without docs
@@ -490,7 +735,7 @@ def chat(req: ChatRequest, user_id: str = "default"):
         # Step 5: If no good answer from website content, try FAQ (but not for greetings)
         if analysis['intent'] != 'greeting' and ("Sorry, I couldn't find" in answer or len(answer.strip()) < 50):
             try:
-                if faq_response["type"] == "faq_suggestions":
+                if faq_response and faq_response.get("type") == "faq_suggestions":
                     faq_suggestions = [{"text": s["question"], "type": "faq", "category": s.get("category", "")} for s in faq_response["suggestions"]]
                     
                     return ChatResponse(
@@ -516,7 +761,7 @@ def chat(req: ChatRequest, user_id: str = "default"):
         
         # Add FAQ suggestions if available
         try:
-            if faq_response["type"] == "faq_suggestions":
+            if faq_response and faq_response.get("type") == "faq_suggestions":
                 faq_suggestions = [{"text": s["question"], "type": "faq", "category": s.get("category", "")} for s in faq_response["suggestions"]]
                 suggestions.extend(faq_suggestions[:2])  # Add top 2 FAQ suggestions
         except Exception as e:

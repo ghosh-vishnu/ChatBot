@@ -1,0 +1,892 @@
+[
+  {
+    "id": "faq_2_1760431640",
+    "question": "Kaise Ho",
+    "answer": "Thik hu tum kaise ho",
+    "category": "Custom",
+    "customCategory": "Emotion",
+    "views": 2,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T14:17:20.968255"
+  },
+  {
+    "id": "faq_3_1760437932",
+    "question": "What are your pricing plans?",
+    "answer": "We offer flexible pricing models including hourly rates, fixed-price projects, and retainer packages. Contact us for a customized quote based on your specific requirements.",
+    "category": "Pricing",
+    "customCategory": "",
+    "views": 5,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:02:12.477038"
+  },
+  {
+    "id": "faq_3_1760438709",
+    "question": "Do you offer internships for students?",
+    "answer": "Yes, we provide internship opportunities for students in multiple technical domains.",
+    "category": "Custom",
+    "customCategory": "Internship & Training",
+    "views": 3,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:09.522077"
+  },
+  {
+    "id": "faq_5_1760438709",
+    "question": "What are the eligibility criteria for internships?",
+    "answer": "Internships are open to graduates and current students in engineering, computer science, and related streams.",
+    "category": "Custom",
+    "customCategory": "Internship & Training",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:09.657070"
+  },
+  {
+    "id": "faq_7_1760438709",
+    "question": "How do I apply for an internship?",
+    "answer": "You can apply through our website or contact our HR team for the latest openings.",
+    "category": "Custom",
+    "customCategory": "Internship & Training",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:09.756349"
+  },
+  {
+    "id": "faq_9_1760438709",
+    "question": "Do you provide certifications after internships?",
+    "answer": "Yes, interns receive certificates on successful completion of the program.",
+    "category": "Custom",
+    "customCategory": "Internship & Training",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:09.856838"
+  },
+  {
+    "id": "faq_11_1760438709",
+    "question": "Is there any stipend offered during the internship?",
+    "answer": "Stipends depend on project, duration, and location; please check individual listings.",
+    "category": "Custom",
+    "customCategory": "Internship & Training",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:09.939577"
+  },
+  {
+    "id": "faq_13_1760438710",
+    "question": "Do you provide industrial training for students and professionals?",
+    "answer": "Yes, our industrial training programs are tailored for both students and working professionals.",
+    "category": "Custom",
+    "customCategory": "Internship & Training",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:10.021240"
+  },
+  {
+    "id": "faq_15_1760438710",
+    "question": "Are trainings offered online or offline?",
+    "answer": "We provide both online and classroom training modes.",
+    "category": "Custom",
+    "customCategory": "Internship & Training",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:10.105168"
+  },
+  {
+    "id": "faq_17_1760438710",
+    "question": "Which topics are covered in training?",
+    "answer": "Topics range from web development, app development, AI/ML, data analytics, DevOps, and more.",
+    "category": "Custom",
+    "customCategory": "Internship & Training",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:10.251139"
+  },
+  {
+    "id": "faq_19_1760438710",
+    "question": "Are your training programs project-based?",
+    "answer": "Yes, most training involves hands-on projects and assignments to boost learning.",
+    "category": "Custom",
+    "customCategory": "Internship & Training",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:10.287707"
+  },
+  {
+    "id": "faq_21_1760438710",
+    "question": "Do you provide placement assistance after training?",
+    "answer": "Yes, we share profiles with hiring partners and help with resume building and interview preparation.",
+    "category": "Custom",
+    "customCategory": "Internship & Training",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:10.311434"
+  },
+  {
+    "id": "faq_23_1760438710",
+    "question": "Is hands-on training provided on analytics tools?",
+    "answer": "Students learn Tableau, Power BI, Google Data Studio, and other tools.",
+    "category": "Custom",
+    "customCategory": "Internship & Training",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:10.323151"
+  },
+  {
+    "id": "faq_25_1760438710",
+    "question": "Is there a web development internship available?",
+    "answer": "Yes, web development internships include HTML, CSS, JavaScript, React, Angular, and project work.",
+    "category": "Custom",
+    "customCategory": "Web Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:10.521220"
+  },
+  {
+    "id": "faq_27_1760438710",
+    "question": "Do you provide web development training?",
+    "answer": "Our web development training covers front-end, back-end, full stack, and deployment.",
+    "category": "Custom",
+    "customCategory": "Web Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:10.568464"
+  },
+  {
+    "id": "faq_29_1760438710",
+    "question": "Can I learn SEO in web development training?",
+    "answer": "SEO principles are included in web development and digital strategy training.",
+    "category": "Custom",
+    "customCategory": "Web Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:10.605776"
+  },
+  {
+    "id": "faq_31_1760438710",
+    "question": "Do you create corporate websites?",
+    "answer": "Yes, we develop modern, responsive corporate websites.",
+    "category": "Custom",
+    "customCategory": "Web Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:10.637631"
+  },
+  {
+    "id": "faq_33_1760438710",
+    "question": "Can you build a responsive website?",
+    "answer": "Yes, all our websites are responsive and mobile-friendly.",
+    "category": "Custom",
+    "customCategory": "Web Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:10.688954"
+  },
+  {
+    "id": "faq_35_1760438710",
+    "question": "Do you make SEO-friendly websites?",
+    "answer": "Yes, we follow SEO best practices in website development.",
+    "category": "Custom",
+    "customCategory": "Web Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:10.771490"
+  },
+  {
+    "id": "faq_37_1760438710",
+    "question": "What technologies do you use in web development?",
+    "answer": "We use technologies like HTML5, CSS3, JavaScript, React, Angular, PHP, Python, and more.",
+    "category": "Custom",
+    "customCategory": "Web Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:10.902055"
+  },
+  {
+    "id": "faq_39_1760438711",
+    "question": "Do you develop single-page applications?",
+    "answer": "Yes, we create single-page applications using frameworks like React and Angular.",
+    "category": "Custom",
+    "customCategory": "Web Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:11.005450"
+  },
+  {
+    "id": "faq_41_1760438711",
+    "question": "Can you integrate payment gateways into websites?",
+    "answer": "Yes, we can integrate secure payment gateways.",
+    "category": "Custom",
+    "customCategory": "Web Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:11.135621"
+  },
+  {
+    "id": "faq_43_1760438711",
+    "question": "How long does website development take?",
+    "answer": "It depends on project size, but usually takes 2\u00e2\u20ac\u201c8 weeks.",
+    "category": "Custom",
+    "customCategory": "Web Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:11.235163"
+  },
+  {
+    "id": "faq_45_1760438711",
+    "question": "Are there internships for Android app development?",
+    "answer": "Yes, Android development internships cover Java, Kotlin, UI design, and app deployment.",
+    "category": "Custom",
+    "customCategory": "Mobile App Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:11.621706"
+  },
+  {
+    "id": "faq_47_1760438711",
+    "question": "Is there training on Android app development?",
+    "answer": "We provide Android training including hands-on mobile projects.",
+    "category": "Custom",
+    "customCategory": "Mobile App Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:11.719598"
+  },
+  {
+    "id": "faq_49_1760438711",
+    "question": "Which IDE is used for Android training?",
+    "answer": "Android Studio is our primary development platform.",
+    "category": "Custom",
+    "customCategory": "Mobile App Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:11.854691"
+  },
+  {
+    "id": "faq_51_1760438712",
+    "question": "Can you create Android apps?",
+    "answer": "Yes, we develop Android applications.",
+    "category": "Custom",
+    "customCategory": "Mobile App Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:12.001001"
+  },
+  {
+    "id": "faq_53_1760438712",
+    "question": "Do you develop iOS apps?",
+    "answer": "Yes, we also develop iOS apps.",
+    "category": "Custom",
+    "customCategory": "Mobile App Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:12.119599"
+  },
+  {
+    "id": "faq_55_1760438712",
+    "question": "Do you develop hybrid mobile apps?",
+    "answer": "Yes, we create hybrid apps using Flutter and React Native.",
+    "category": "Custom",
+    "customCategory": "Mobile App Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:12.188056"
+  },
+  {
+    "id": "faq_57_1760438712",
+    "question": "Can you build apps for startups?",
+    "answer": "Yes, we support startups with cost-effective app solutions.",
+    "category": "Custom",
+    "customCategory": "Mobile App Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:12.350838"
+  },
+  {
+    "id": "faq_59_1760438712",
+    "question": "Do you develop on Flutter or React Native?",
+    "answer": "Yes, we use Flutter and React Native for app development.",
+    "category": "Custom",
+    "customCategory": "Mobile App Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:12.486242"
+  },
+  {
+    "id": "faq_61_1760438712",
+    "question": "How long does it take to build an app?",
+    "answer": "It usually takes 1\u00e2\u20ac\u201c3 months, depending on complexity.",
+    "category": "Custom",
+    "customCategory": "Mobile App Development",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:12.570770"
+  },
+  {
+    "id": "faq_63_1760438712",
+    "question": "Is there an AI/ML internship available?",
+    "answer": "Yes, AI/ML internships cover Python, machine learning, data science, and neural networks.",
+    "category": "Custom",
+    "customCategory": "AI/ML and Data Analytics",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:12.932743"
+  },
+  {
+    "id": "faq_65_1760438713",
+    "question": "Do you train in AI/ML?",
+    "answer": "We provide specialized training in AI, ML, deep learning, NLP, and computer vision.",
+    "category": "Custom",
+    "customCategory": "AI/ML and Data Analytics",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:13.083606"
+  },
+  {
+    "id": "faq_67_1760438713",
+    "question": "What Python libraries are used in AI training?",
+    "answer": "Training covers TensorFlow, Keras, Scikit-learn, Pandas, Numpy, and Matplotlib.",
+    "category": "Custom",
+    "customCategory": "AI/ML and Data Analytics",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:13.218800"
+  },
+  {
+    "id": "faq_69_1760438713",
+    "question": "Are internships offered in data analytics?",
+    "answer": "Yes, we offer data analytics internships working with real business datasets.",
+    "category": "Custom",
+    "customCategory": "AI/ML and Data Analytics",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:13.349599"
+  },
+  {
+    "id": "faq_71_1760438713",
+    "question": "Is training available for data analytics?",
+    "answer": "Data analytics training includes Excel, SQL, Python, R, dashboarding, and visualizations.",
+    "category": "Custom",
+    "customCategory": "AI/ML and Data Analytics",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:13.550857"
+  },
+  {
+    "id": "faq_73_1760438713",
+    "question": "Do you provide data analytics solutions?",
+    "answer": "Yes, we analyze and visualize data with advanced tools.",
+    "category": "Custom",
+    "customCategory": "AI/ML and Data Analytics",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:13.767902"
+  },
+  {
+    "id": "faq_75_1760438713",
+    "question": "Can you build machine learning models?",
+    "answer": "Yes, we can build ML models for your use case.",
+    "category": "Custom",
+    "customCategory": "AI/ML and Data Analytics",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:13.883202"
+  },
+  {
+    "id": "faq_77_1760438714",
+    "question": "Do you work with predictive analytics?",
+    "answer": "Yes, we specialize in predictive analytics.",
+    "category": "Custom",
+    "customCategory": "AI/ML and Data Analytics",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:14.032344"
+  },
+  {
+    "id": "faq_79_1760438714",
+    "question": "Can you provide AI chatbots?",
+    "answer": "Yes, we develop AI-powered chatbots.",
+    "category": "Custom",
+    "customCategory": "AI/ML and Data Analytics",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:14.198693"
+  },
+  {
+    "id": "faq_81_1760438714",
+    "question": "Do you do natural language processing (NLP)?",
+    "answer": "Yes, we implement NLP solutions.",
+    "category": "Custom",
+    "customCategory": "AI/ML and Data Analytics",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:14.335848"
+  },
+  {
+    "id": "faq_83_1760438714",
+    "question": "Do you have DevOps internships?",
+    "answer": "Yes, DevOps internships involve cloud platforms, CI/CD, Docker, Kubernetes, and monitoring tools.",
+    "category": "Custom",
+    "customCategory": "DevOps and Cloud",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:14.601202"
+  },
+  {
+    "id": "faq_85_1760438714",
+    "question": "Is there DevOps training for beginners?",
+    "answer": "Our DevOps training covers workflows, pipelines, automation, version control, and cloud platforms.",
+    "category": "Custom",
+    "customCategory": "DevOps and Cloud",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:14.650426"
+  },
+  {
+    "id": "faq_87_1760438714",
+    "question": "Do you provide AWS/Azure/GCP training?",
+    "answer": "Yes, cloud training is included in DevOps, covering AWS, Azure, and GCP.",
+    "category": "Custom",
+    "customCategory": "DevOps and Cloud",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:14.782960"
+  },
+  {
+    "id": "faq_89_1760438714",
+    "question": "What is DevOps?",
+    "answer": "DevOps is an approach combining development and operations for faster software delivery.",
+    "category": "Custom",
+    "customCategory": "DevOps and Cloud",
+    "views": 1,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:14.948358"
+  },
+  {
+    "id": "faq_91_1760438715",
+    "question": "Can you manage cloud deployment?",
+    "answer": "Yes, we handle cloud deployment.",
+    "category": "Custom",
+    "customCategory": "DevOps and Cloud",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:15.032879"
+  },
+  {
+    "id": "faq_93_1760438715",
+    "question": "Do you offer cloud migration services?",
+    "answer": "Yes, we migrate applications securely to the cloud.",
+    "category": "Custom",
+    "customCategory": "DevOps and Cloud",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:15.131179"
+  },
+  {
+    "id": "faq_95_1760438715",
+    "question": "Do you work with AWS?",
+    "answer": "Yes, we provide AWS solutions.",
+    "category": "Custom",
+    "customCategory": "DevOps and Cloud",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:15.250834"
+  },
+  {
+    "id": "faq_97_1760438715",
+    "question": "Do you work with Azure?",
+    "answer": "Yes, we support Azure.",
+    "category": "Custom",
+    "customCategory": "DevOps and Cloud",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:15.397034"
+  },
+  {
+    "id": "faq_99_1760438715",
+    "question": "Do you provide GCP solutions?",
+    "answer": "Yes, we work with Google Cloud Platform.",
+    "category": "Custom",
+    "customCategory": "DevOps and Cloud",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:15.513554"
+  },
+  {
+    "id": "faq_101_1760438715",
+    "question": "Do you offer software development internships?",
+    "answer": "We offer internships in software engineering for C++, Python, Java, .NET, and more.",
+    "category": "Custom",
+    "customCategory": "DevOps and Cloud",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:15.597765"
+  },
+  {
+    "id": "faq_103_1760438715",
+    "question": "Is there software development training?",
+    "answer": "Yes, we conduct training on system design, architecture, programming, and software lifecycle.",
+    "category": "Custom",
+    "customCategory": "DevOps and Cloud",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:15.666731"
+  },
+  {
+    "id": "faq_105_1760438716",
+    "question": "Can I do an internship focused on a specific programming language?",
+    "answer": "Yes, internships are available for Python, Java, C++, and JavaScript depending on project needs.",
+    "category": "Custom",
+    "customCategory": "Programming Languages",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:16.166567"
+  },
+  {
+    "id": "faq_107_1760438716",
+    "question": "Do you offer language-specific training programs?",
+    "answer": "We have beginner-to-advanced courses for Python, Java, C++, JavaScript, PHP, and more.",
+    "category": "Custom",
+    "customCategory": "Programming Languages",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:16.297069"
+  },
+  {
+    "id": "faq_109_1760438716",
+    "question": "Can I get certified in programming languages?",
+    "answer": "Yes, official certificates are provided after training completion.",
+    "category": "Custom",
+    "customCategory": "Programming Languages",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:16.366093"
+  },
+  {
+    "id": "faq_111_1760438716",
+    "question": "Where is your company located?",
+    "answer": "We are based in India, with offices in Jamshedpur, Bhopal, Bangalore, and Kolkata.",
+    "category": "Custom",
+    "customCategory": "Company Information",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:16.749559"
+  },
+  {
+    "id": "faq_113_1760438716",
+    "question": "Do you have offices in multiple cities?",
+    "answer": "Yes, we operate from multiple cities including Jamshedpur, Bhopal, Bangalore, and Kolkata.",
+    "category": "Custom",
+    "customCategory": "Company Information",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:16.889745"
+  },
+  {
+    "id": "faq_115_1760438717",
+    "question": "Which cities do you have offices in?",
+    "answer": "We have offices in Jamshedpur, Bhopal, Bangalore, and Kolkata.",
+    "category": "Custom",
+    "customCategory": "Company Information",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:17.028860"
+  },
+  {
+    "id": "faq_117_1760438717",
+    "question": "Is your company based in India?",
+    "answer": "Yes, our company is based in India.",
+    "category": "Custom",
+    "customCategory": "Company Information",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:17.177635"
+  },
+  {
+    "id": "faq_119_1760438717",
+    "question": "How long has your company been in business?",
+    "answer": "We have been serving clients for several years with innovative software solutions.",
+    "category": "Custom",
+    "customCategory": "Company Information",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:17.312091"
+  },
+  {
+    "id": "faq_121_1760438717",
+    "question": "What industries do you serve?",
+    "answer": "We serve industries like education, healthcare, retail, manufacturing, finance, and more.",
+    "category": "Custom",
+    "customCategory": "Company Information",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:17.429158"
+  },
+  {
+    "id": "faq_123_1760438717",
+    "question": "What services does your company provide?",
+    "answer": "We provide web development, mobile app development, custom software, AI/ML, DevOps, and analytics services.",
+    "category": "Custom",
+    "customCategory": "Services Overview",
+    "views": 2,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:17.745111"
+  },
+  {
+    "id": "faq_125_1760438717",
+    "question": "Do you provide complete digital transformation services?",
+    "answer": "Yes, we provide complete end-to-end digital transformation solutions.",
+    "category": "Custom",
+    "customCategory": "Services Overview",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:17.895934"
+  },
+  {
+    "id": "faq_127_1760438718",
+    "question": "Can you develop custom software for businesses?",
+    "answer": "Yes, we specialize in developing customized software for any business requirement.",
+    "category": "Custom",
+    "customCategory": "Services Overview",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:18.061940"
+  },
+  {
+    "id": "faq_129_1760438718",
+    "question": "Do you offer AI and machine learning solutions?",
+    "answer": "Yes, we provide AI/ML-based solutions such as predictive analytics, chatbots, and more.",
+    "category": "Custom",
+    "customCategory": "Services Overview",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:18.311838"
+  },
+  {
+    "id": "faq_131_1760438718",
+    "question": "Do you handle DevOps and cloud integrations?",
+    "answer": "Yes, we offer full DevOps services including automation and cloud integration.",
+    "category": "Custom",
+    "customCategory": "Services Overview",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:18.513590"
+  },
+  {
+    "id": "faq_133_1760438718",
+    "question": "Can you build e-commerce platforms?",
+    "answer": "Yes, we can develop scalable and secure e-commerce platforms.",
+    "category": "Custom",
+    "customCategory": "Services Overview",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:18.729170"
+  },
+  {
+    "id": "faq_135_1760438718",
+    "question": "Do you design websites?",
+    "answer": "Yes, we design and develop professional websites.",
+    "category": "Custom",
+    "customCategory": "Services Overview",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:18.898104"
+  },
+  {
+    "id": "faq_137_1760438719",
+    "question": "Can you make mobile applications?",
+    "answer": "Yes, we develop both Android and iOS mobile apps.",
+    "category": "Custom",
+    "customCategory": "Services Overview",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:19.094204"
+  },
+  {
+    "id": "faq_139_1760438719",
+    "question": "Do you provide HRMS software?",
+    "answer": "Yes, we provide HRMS software.",
+    "category": "Custom",
+    "customCategory": "Software Products & Solutions",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:19.388790"
+  },
+  {
+    "id": "faq_141_1760438719",
+    "question": "Do you provide DMS (document management system)?",
+    "answer": "Yes, we provide DMS solutions.",
+    "category": "Custom",
+    "customCategory": "Software Products & Solutions",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:19.545289"
+  },
+  {
+    "id": "faq_143_1760438719",
+    "question": "Do you provide LMS (learning management system)?",
+    "answer": "Yes, we offer LMS platforms.",
+    "category": "Custom",
+    "customCategory": "Software Products & Solutions",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:19.663605"
+  },
+  {
+    "id": "faq_145_1760438720",
+    "question": "Do you provide CRM (customer relationship management)?",
+    "answer": "Yes, we provide CRM systems.",
+    "category": "Custom",
+    "customCategory": "Software Products & Solutions",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:20.042659"
+  },
+  {
+    "id": "faq_147_1760438720",
+    "question": "Do you provide hospital management software?",
+    "answer": "Yes, we provide hospital solutions.",
+    "category": "Custom",
+    "customCategory": "Software Products & Solutions",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:20.261443"
+  },
+  {
+    "id": "faq_149_1760438720",
+    "question": "Do you provide school management software?",
+    "answer": "Yes, we provide complete school ERP.",
+    "category": "Custom",
+    "customCategory": "Software Products & Solutions",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:20.359781"
+  },
+  {
+    "id": "faq_151_1760438720",
+    "question": "Do you provide inventory management software?",
+    "answer": "Yes, we provide inventory tracking solutions.",
+    "category": "Custom",
+    "customCategory": "Software Products & Solutions",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:20.443250"
+  },
+  {
+    "id": "faq_153_1760438720",
+    "question": "Do you provide e-commerce solutions?",
+    "answer": "Yes, we provide end-to-end e-commerce development.",
+    "category": "Custom",
+    "customCategory": "Software Products & Solutions",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:20.557713"
+  },
+  {
+    "id": "faq_155_1760438720",
+    "question": "Can you build custom ERP systems?",
+    "answer": "Yes, we design and build ERP software.",
+    "category": "Custom",
+    "customCategory": "Software Products & Solutions",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:20.642617"
+  },
+  {
+    "id": "faq_157_1760438721",
+    "question": "How do I start a project with you?",
+    "answer": "You can contact us, and we'll schedule a consultation.",
+    "category": "Custom",
+    "customCategory": "Pricing & Support",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:21.009013"
+  },
+  {
+    "id": "faq_159_1760438721",
+    "question": "What is the process of software development?",
+    "answer": "We follow requirement gathering, design, development, testing, and deployment steps.",
+    "category": "Custom",
+    "customCategory": "Pricing & Support",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:21.111317"
+  },
+  {
+    "id": "faq_161_1760438721",
+    "question": "Do you sign NDA and contracts?",
+    "answer": "Yes, we ensure data confidentiality with NDAs.",
+    "category": "Custom",
+    "customCategory": "Pricing & Support",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:21.202953"
+  },
+  {
+    "id": "faq_163_1760438721",
+    "question": "Do you provide free consultation?",
+    "answer": "Yes, we offer free initial consultation.",
+    "category": "Custom",
+    "customCategory": "Pricing & Support",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:21.275377"
+  },
+  {
+    "id": "faq_165_1760438721",
+    "question": "Do you charge hourly or fixed price?",
+    "answer": "We provide both hourly and fixed-price models.",
+    "category": "Custom",
+    "customCategory": "Pricing & Support",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:21.359037"
+  },
+  {
+    "id": "faq_167_1760438721",
+    "question": "Do you provide ongoing support?",
+    "answer": "Yes, we offer ongoing support and maintenance.",
+    "category": "Custom",
+    "customCategory": "Pricing & Support",
+    "views": 1,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:21.474293"
+  },
+  {
+    "id": "faq_169_1760438721",
+    "question": "Do you maintain the software after delivery?",
+    "answer": "Yes, we provide maintenance.",
+    "category": "Custom",
+    "customCategory": "Pricing & Support",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:21.558641"
+  },
+  {
+    "id": "faq_171_1760438721",
+    "question": "Do you provide 24/7 support?",
+    "answer": "Yes, 24/7 support is available.",
+    "category": "Custom",
+    "customCategory": "Pricing & Support",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:21.640103"
+  },
+  {
+    "id": "faq_173_1760438721",
+    "question": "Can you handle bug fixes?",
+    "answer": "Yes, we fix bugs promptly.",
+    "category": "Custom",
+    "customCategory": "Pricing & Support",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:21.755984"
+  },
+  {
+    "id": "faq_175_1760438721",
+    "question": "Do you have AMC (annual maintenance contract)?",
+    "answer": "Yes, we offer AMC packages.",
+    "category": "Custom",
+    "customCategory": "Pricing & Support",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-14T16:15:21.843060"
+  }
+]

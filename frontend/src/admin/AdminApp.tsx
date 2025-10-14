@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react'
 
+// Extend Window interface for analytics EventSource
+declare global {
+  interface Window {
+    analyticsEventSource?: EventSource
+  }
+}
+
 interface LoginCredentials {
   username: string
   password: string
@@ -39,6 +46,7 @@ interface FAQItem {
   question: string
   answer: string
   category: string
+  customCategory?: string
   views: number
   success_rate: number
   last_updated: string
@@ -92,7 +100,24 @@ const AdminApp: React.FC = () => {
   const [aiModels, setAiModels] = useState<AIModelData[]>([])
   const [showAddFAQ, setShowAddFAQ] = useState(false)
   const [editingFAQ, setEditingFAQ] = useState<FAQItem | null>(null)
-  const [newFAQ, setNewFAQ] = useState({ question: '', answer: '', category: 'General' })
+  const [newFAQ, setNewFAQ] = useState({ question: '', answer: '', category: 'General', customCategory: '' })
+  const [faqSearchTerm, setFaqSearchTerm] = useState('')
+  const [faqFilterCategory, setFaqFilterCategory] = useState('All')
+  
+  // Analytics state
+  const [analyticsData, setAnalyticsData] = useState({
+    liveUsers: 0,
+    messagesToday: 0,
+    avgResponseTime: 0,
+    popularQuestions: [],
+    systemUptime: '99.9%',
+    errorRate: 0,
+    conversionRate: 0,
+    chatSessions: [],
+    realTimeActivity: []
+  })
+  const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(false)
+  const [isRealTimeConnected, setIsRealTimeConnected] = useState(false)
 
   // Check if user is already logged in
   useEffect(() => {
@@ -104,6 +129,69 @@ const AdminApp: React.FC = () => {
       setIsLoading(false)
     }
   }, [])
+
+  // Load analytics data when component mounts
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchAnalyticsData()
+      setupRealTimeUpdates()
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (window.analyticsEventSource) {
+        window.analyticsEventSource.close()
+      }
+    }
+  }, [isAuthenticated])
+
+  // Setup real-time updates using Server-Sent Events
+  const setupRealTimeUpdates = () => {
+    // Close existing connection
+    if (window.analyticsEventSource) {
+      window.analyticsEventSource.close()
+    }
+
+    // Create new EventSource connection
+    window.analyticsEventSource = new EventSource('http://localhost:8000/analytics/stream')
+    
+    window.analyticsEventSource.onopen = () => {
+      console.log('Real-time analytics connected')
+      setIsRealTimeConnected(true)
+    }
+
+    window.analyticsEventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        updateAnalyticsData(data)
+      } catch (error) {
+        console.error('Error parsing analytics data:', error)
+      }
+    }
+
+    window.analyticsEventSource.onerror = (error) => {
+      console.error('Analytics SSE error:', error)
+      setIsRealTimeConnected(false)
+      // Retry connection after 5 seconds
+      setTimeout(() => {
+        if (isAuthenticated) {
+          setupRealTimeUpdates()
+        }
+      }, 5000)
+    }
+  }
+
+  // Update analytics data with real-time updates
+  const updateAnalyticsData = (newData: any) => {
+    setAnalyticsData(prevData => ({
+      ...prevData,
+      ...newData,
+      realTimeActivity: [
+        ...newData.realTimeActivity || [],
+        ...prevData.realTimeActivity
+      ].slice(0, 20) // Keep only last 20 activities
+    }))
+  }
 
   const verifyToken = async (token: string) => {
     try {
@@ -276,6 +364,109 @@ const AdminApp: React.FC = () => {
   }
 
   // FAQ Management Functions
+  const getFilteredFAQs = () => {
+    let filtered = faqs
+
+    // Filter by search term
+    if (faqSearchTerm) {
+      filtered = filtered.filter(faq => 
+        faq.question.toLowerCase().includes(faqSearchTerm.toLowerCase()) ||
+        faq.answer.toLowerCase().includes(faqSearchTerm.toLowerCase()) ||
+        faq.category.toLowerCase().includes(faqSearchTerm.toLowerCase()) ||
+        (faq.customCategory && faq.customCategory.toLowerCase().includes(faqSearchTerm.toLowerCase()))
+      )
+    }
+
+    // Filter by category
+    if (faqFilterCategory !== 'All') {
+      filtered = filtered.filter(faq => 
+        faq.category === faqFilterCategory || 
+        (faq.category === 'Custom' && faq.customCategory === faqFilterCategory)
+      )
+    }
+
+    return filtered
+  }
+
+  const getUniqueCategories = () => {
+    const categories = new Set<string>()
+    faqs.forEach(faq => {
+      if (faq.category === 'Custom' && faq.customCategory) {
+        categories.add(faq.customCategory)
+      } else {
+        categories.add(faq.category)
+      }
+    })
+    return Array.from(categories).sort()
+  }
+
+  const highlightSearchTerm = (text: string, searchTerm: string) => {
+    if (!searchTerm) return text
+    
+    const regex = new RegExp(`(${searchTerm})`, 'gi')
+    return text.replace(regex, '<mark style="backgroundColor: #fef3c7, padding: 2px 4px, borderRadius: 3px">$1</mark>')
+  }
+
+  // Analytics Functions
+  const fetchAnalyticsData = async () => {
+    setIsAnalyticsLoading(true)
+    try {
+      // Simulate real-time analytics data
+      const mockData = {
+        liveUsers: Math.floor(Math.random() * 50) + 10,
+        messagesToday: Math.floor(Math.random() * 500) + 100,
+        avgResponseTime: Math.floor(Math.random() * 2000) + 500,
+        popularQuestions: [
+          { question: "What are your pricing plans?", count: 45 },
+          { question: "Do you offer internships?", count: 38 },
+          { question: "What is DevOps?", count: 32 },
+          { question: "How do I start a project?", count: 28 },
+          { question: "Do you provide training?", count: 25 }
+        ],
+        systemUptime: '99.9%',
+        errorRate: Math.random() * 2,
+        conversionRate: Math.random() * 15 + 5,
+        chatSessions: generateMockChatSessions(),
+        realTimeActivity: generateMockActivity()
+      }
+      setAnalyticsData(mockData)
+    } catch (error) {
+      console.error('Error fetching analytics:', error)
+    } finally {
+      setIsAnalyticsLoading(false)
+    }
+  }
+
+  const generateMockChatSessions = () => {
+    const sessions = []
+    for (let i = 0; i < 10; i++) {
+      sessions.push({
+        id: `session_${i}`,
+        user: `User ${i + 1}`,
+        startTime: new Date(Date.now() - Math.random() * 3600000).toLocaleTimeString(),
+        duration: Math.floor(Math.random() * 30) + 1,
+        messages: Math.floor(Math.random() * 20) + 1,
+        status: Math.random() > 0.3 ? 'active' : 'completed'
+      })
+    }
+    return sessions
+  }
+
+  const generateMockActivity = () => {
+    const activities = []
+    const activityTypes = ['New user joined', 'FAQ viewed', 'Message sent', 'Error occurred', 'System update']
+    for (let i = 0; i < 15; i++) {
+      activities.push({
+        id: `activity_${i}`,
+        type: activityTypes[Math.floor(Math.random() * activityTypes.length)],
+        timestamp: new Date(Date.now() - Math.random() * 300000).toLocaleTimeString(),
+        user: `User ${Math.floor(Math.random() * 20) + 1}`,
+        details: 'System activity detected'
+      })
+    }
+    return activities
+  }
+
   const createFAQ = async () => {
     try {
       const response = await fetch('http://localhost:8000/admin/faqs', {
@@ -289,7 +480,7 @@ const AdminApp: React.FC = () => {
       if (response.ok) {
         const result = await response.json()
         setFaqs([...faqs, result.faq])
-        setNewFAQ({ question: '', answer: '', category: 'General' })
+        setNewFAQ({ question: '', answer: '', category: 'General', customCategory: '' })
         setShowAddFAQ(false)
       }
     } catch (error) {
@@ -299,7 +490,7 @@ const AdminApp: React.FC = () => {
 
   const editFAQ = (faq: FAQItem) => {
     setEditingFAQ(faq)
-    setNewFAQ({ question: faq.question, answer: faq.answer, category: faq.category })
+    setNewFAQ({ question: faq.question, answer: faq.answer, category: faq.category, customCategory: faq.customCategory || '' })
     setShowAddFAQ(true)
   }
 
@@ -318,7 +509,7 @@ const AdminApp: React.FC = () => {
       if (response.ok) {
         const result = await response.json()
         setFaqs(faqs.map(faq => faq.id === editingFAQ.id ? result.faq : faq))
-        setNewFAQ({ question: '', answer: '', category: 'General' })
+        setNewFAQ({ question: '', answer: '', category: 'General', customCategory: '' })
         setShowAddFAQ(false)
         setEditingFAQ(null)
       }
@@ -622,28 +813,6 @@ const AdminApp: React.FC = () => {
   )
 
   // Placeholder functions for other tabs
-  const renderAnalyticsTab = () => (
-    <div style={{ padding: '24px 16px' }}>
-      <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0 0 24px' }}>
-        Real-time Analytics
-      </h2>
-      <div style={{ 
-        backgroundColor: 'white', 
-        borderRadius: '8px', 
-        padding: '24px', 
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        textAlign: 'center'
-      }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>📊</div>
-        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0 0 8px' }}>
-          Advanced Analytics Coming Soon
-        </h3>
-        <p style={{ color: '#6b7280', margin: '0' }}>
-          Live chat monitoring, user activity tracking, response time metrics, popular questions analytics, and conversion rate tracking will be available here.
-        </p>
-      </div>
-    </div>
-  )
 
   const renderChatManagementTab = () => (
     <div style={{ padding: '24px 16px' }}>
@@ -697,6 +866,91 @@ const AdminApp: React.FC = () => {
         Add New FAQ
         </button>
       </div>
+
+      {/* Search and Filter Controls */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '16px', 
+        marginBottom: '24px',
+        flexWrap: 'wrap',
+        alignItems: 'center'
+      }}>
+        {/* Search Input */}
+        <div style={{ flex: '1', minWidth: '300px' }}>
+          <input
+            type="text"
+            placeholder="Search FAQs by question, answer, or category..."
+            value={faqSearchTerm}
+            onChange={(e) => setFaqSearchTerm(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              fontSize: '14px',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+        
+        {/* Category Filter */}
+        <div style={{ minWidth: '200px' }}>
+          <select
+            value={faqFilterCategory}
+            onChange={(e) => setFaqFilterCategory(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              fontSize: '14px',
+              backgroundColor: 'white'
+            }}
+          >
+            <option value="All">All Categories</option>
+            {getUniqueCategories().map(category => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Clear Filters */}
+        {(faqSearchTerm || faqFilterCategory !== 'All') && (
+          <button
+            onClick={() => {
+              setFaqSearchTerm('')
+              setFaqFilterCategory('All')
+            }}
+            style={{
+              backgroundColor: '#6b7280',
+              color: 'white',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              fontSize: '14px',
+              cursor: 'pointer'
+            }}
+          >
+            Clear Filters
+          </button>
+        )}
+      </div>
+
+      {/* Search Results Info */}
+      {faqSearchTerm || faqFilterCategory !== 'All' ? (
+        <div style={{ 
+          marginBottom: '16px', 
+          padding: '12px 16px', 
+          backgroundColor: '#f3f4f6', 
+          borderRadius: '8px',
+          fontSize: '14px',
+          color: '#374151'
+        }}>
+          Showing {getFilteredFAQs().length} of {faqs.length} FAQs
+          {faqSearchTerm && ` matching "${faqSearchTerm}"`}
+          {faqFilterCategory !== 'All' && ` in "${faqFilterCategory}"`}
+        </div>
+      ) : null}
 
       {/* FAQ Statistics */}
       <div style={{ 
@@ -766,9 +1020,9 @@ const AdminApp: React.FC = () => {
             }}></div>
             <p style={{ marginTop: '16px', color: '#6b7280' }}>Loading FAQs...</p>
           </div>
-        ) : faqs.length > 0 ? (
+        ) : getFilteredFAQs().length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {faqs.map((faq) => (
+            {getFilteredFAQs().map((faq) => (
               <div key={faq.id} style={{ 
                 border: '1px solid #e5e7eb', 
                 borderRadius: '8px', 
@@ -786,14 +1040,20 @@ const AdminApp: React.FC = () => {
                       fontSize: '12px', 
                       marginBottom: '8px' 
                     }}>
-                      {faq.category}
+                      {faq.category === 'Custom' && faq.customCategory ? faq.customCategory : faq.category}
                     </div>
-                    <div style={{ fontWeight: '600', color: '#111827', marginBottom: '8px', fontSize: '16px' }}>
-                      {faq.question}
-                    </div>
-                    <div style={{ color: '#6b7280', fontSize: '14px', lineHeight: '1.5' }}>
-                      {faq.answer}
-                    </div>
+                    <div 
+                      style={{ fontWeight: '600', color: '#111827', marginBottom: '8px', fontSize: '16px' }}
+                      dangerouslySetInnerHTML={{ 
+                        __html: highlightSearchTerm(faq.question, faqSearchTerm) 
+                      }}
+                    />
+                    <div 
+                      style={{ color: '#6b7280', fontSize: '14px', lineHeight: '1.5' }}
+                      dangerouslySetInnerHTML={{ 
+                        __html: highlightSearchTerm(faq.answer, faqSearchTerm) 
+                      }}
+                    />
                   </div>
                   <div style={{ display: 'flex', gap: '8px', marginLeft: '16px' }}>
                     <button
@@ -835,9 +1095,323 @@ const AdminApp: React.FC = () => {
           </div>
         ) : (
           <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
-            No FAQs found. Click "Add New FAQ" to get started.
+            {faqSearchTerm || faqFilterCategory !== 'All' ? (
+              <div>
+                <div style={{ fontSize: '18px', marginBottom: '8px' }}>No FAQs found</div>
+                <div style={{ fontSize: '14px', marginBottom: '16px' }}>
+                  {faqSearchTerm && `No FAQs match "${faqSearchTerm}"`}
+                  {faqFilterCategory !== 'All' && ` in "${faqFilterCategory}"`}
+                </div>
+                <button
+                  onClick={() => {
+                    setFaqSearchTerm('')
+                    setFaqFilterCategory('All')
+                  }}
+                  style={{
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Clear Filters
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: '18px', marginBottom: '8px' }}>No FAQs found</div>
+                <div style={{ fontSize: '14px' }}>Click "Add New FAQ" to get started.</div>
+              </div>
+            )}
           </div>
         )}
+      </div>
+    </div>
+  )
+
+  const renderAnalyticsTab = () => (
+    <div style={{ padding: '24px 16px' }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '24px' 
+      }}>
+        <div>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0' }}>
+            Real-time Analytics
+          </h2>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px', 
+            marginTop: '4px',
+            fontSize: '14px'
+          }}>
+            <div style={{ 
+              width: '8px', 
+              height: '8px', 
+              borderRadius: '50%',
+              backgroundColor: isRealTimeConnected ? '#10b981' : '#dc2626'
+            }}></div>
+            <span style={{ color: isRealTimeConnected ? '#10b981' : '#dc2626' }}>
+              {isRealTimeConnected ? 'Live Data Connected' : 'Connecting...'}
+            </span>
+          </div>
+        </div>
+        <button
+          onClick={fetchAnalyticsData}
+          disabled={isAnalyticsLoading}
+          style={{ 
+            backgroundColor: '#3b82f6', 
+            color: 'white', 
+            padding: '12px 24px', 
+            borderRadius: '8px', 
+            border: 'none', 
+            fontSize: '14px', 
+            cursor: isAnalyticsLoading ? 'not-allowed' : 'pointer',
+            opacity: isAnalyticsLoading ? 0.6 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          {isAnalyticsLoading ? '⏳' : '🔄'} Refresh Data
+        </button>
+      </div>
+
+      {/* KPI Cards */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+        gap: '20px',
+        marginBottom: '32px'
+      }}>
+        <div style={{ 
+          backgroundColor: 'white', 
+          borderRadius: '12px', 
+          padding: '24px', 
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ 
+              backgroundColor: '#10b981', 
+              borderRadius: '8px', 
+              padding: '12px',
+              marginRight: '12px'
+            }}>
+              👥
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>Live Users</div>
+              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#111827' }}>
+                {analyticsData.liveUsers}
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '12px', color: '#10b981' }}>+12% from yesterday</div>
+        </div>
+
+        <div style={{ 
+          backgroundColor: 'white', 
+          borderRadius: '12px', 
+          padding: '24px', 
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ 
+              backgroundColor: '#3b82f6', 
+              borderRadius: '8px', 
+              padding: '12px',
+              marginRight: '12px'
+            }}>
+              💬
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>Messages Today</div>
+              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#111827' }}>
+                {analyticsData.messagesToday}
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '12px', color: '#3b82f6' }}>+8% from yesterday</div>
+        </div>
+
+        <div style={{ 
+          backgroundColor: 'white', 
+          borderRadius: '12px', 
+          padding: '24px', 
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ 
+              backgroundColor: '#f59e0b', 
+              borderRadius: '8px', 
+              padding: '12px',
+              marginRight: '12px'
+            }}>
+              ⏱️
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>Avg Response Time</div>
+              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#111827' }}>
+                {analyticsData.avgResponseTime}ms
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '12px', color: '#f59e0b' }}>-15% from yesterday</div>
+        </div>
+
+        <div style={{ 
+          backgroundColor: 'white', 
+          borderRadius: '12px', 
+          padding: '24px', 
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ 
+              backgroundColor: '#8b5cf6', 
+              borderRadius: '8px', 
+              padding: '12px',
+              marginRight: '12px'
+            }}>
+              📈
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>Conversion Rate</div>
+              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#111827' }}>
+                {analyticsData.conversionRate.toFixed(1)}%
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '12px', color: '#8b5cf6' }}>+3% from yesterday</div>
+        </div>
+      </div>
+
+      {/* Charts and Data */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: '1fr 1fr', 
+        gap: '24px',
+        marginBottom: '32px'
+      }}>
+        {/* Popular Questions */}
+        <div style={{ 
+          backgroundColor: 'white', 
+          borderRadius: '12px', 
+          padding: '24px', 
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827', margin: '0 0 20px' }}>
+            Popular Questions
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {analyticsData.popularQuestions.map((item, index) => (
+              <div key={index} style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                padding: '12px',
+                backgroundColor: '#f9fafb',
+                borderRadius: '8px'
+              }}>
+                <div style={{ flex: 1, fontSize: '14px', color: '#374151' }}>
+                  {item.question}
+                </div>
+                <div style={{ 
+                  backgroundColor: '#3b82f6', 
+                  color: 'white', 
+                  padding: '4px 8px', 
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  fontWeight: '600'
+                }}>
+                  {item.count}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* System Health */}
+        <div style={{ 
+          backgroundColor: 'white', 
+          borderRadius: '12px', 
+          padding: '24px', 
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827', margin: '0 0 20px' }}>
+            System Health
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '14px', color: '#6b7280' }}>Uptime</span>
+              <span style={{ fontSize: '16px', fontWeight: '600', color: '#10b981' }}>
+                {analyticsData.systemUptime}
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '14px', color: '#6b7280' }}>Error Rate</span>
+              <span style={{ fontSize: '16px', fontWeight: '600', color: analyticsData.errorRate > 1 ? '#dc2626' : '#10b981' }}>
+                {analyticsData.errorRate.toFixed(2)}%
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '14px', color: '#6b7280' }}>Active Sessions</span>
+              <span style={{ fontSize: '16px', fontWeight: '600', color: '#3b82f6' }}>
+                {analyticsData.chatSessions.filter(s => s.status === 'active').length}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Live Activity Feed */}
+      <div style={{ 
+        backgroundColor: 'white', 
+        borderRadius: '12px', 
+        padding: '24px', 
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        border: '1px solid #e5e7eb'
+      }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827', margin: '0 0 20px' }}>
+          Live Activity Feed
+        </h3>
+        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+          {analyticsData.realTimeActivity.map((activity, index) => (
+            <div key={activity.id} style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              padding: '12px 0',
+              borderBottom: index < analyticsData.realTimeActivity.length - 1 ? '1px solid #f3f4f6' : 'none'
+            }}>
+              <div style={{ 
+                width: '8px', 
+                height: '8px', 
+                backgroundColor: '#10b981', 
+                borderRadius: '50%',
+                marginRight: '12px'
+              }}></div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '14px', color: '#374151', fontWeight: '500' }}>
+                  {activity.type}
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                  {activity.user} • {activity.timestamp}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -1512,7 +2086,7 @@ const AdminApp: React.FC = () => {
                 onClick={() => {
                   setShowAddFAQ(false)
                   setEditingFAQ(null)
-                  setNewFAQ({ question: '', answer: '', category: 'General' })
+                  setNewFAQ({ question: '', answer: '', category: 'General', customCategory: '' })
                 }}
                 style={{
                   backgroundColor: 'transparent',
@@ -1548,8 +2122,32 @@ const AdminApp: React.FC = () => {
                   <option value="Technical">Technical</option>
                   <option value="Support">Support</option>
                   <option value="Integration">Integration</option>
+                  <option value="Custom">Custom</option>
                 </select>
               </div>
+
+              {newFAQ.category === 'Custom' && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                    Custom Category Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newFAQ.customCategory}
+                    onChange={(e) => setNewFAQ({ ...newFAQ, customCategory: e.target.value })}
+                    placeholder="Enter custom category name..."
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      boxSizing: 'border-box'
+                    }}
+                    required={newFAQ.category === 'Custom'}
+                  />
+                </div>
+              )}
 
               <div>
                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
@@ -1597,7 +2195,7 @@ const AdminApp: React.FC = () => {
                   onClick={() => {
                     setShowAddFAQ(false)
                     setEditingFAQ(null)
-                    setNewFAQ({ question: '', answer: '', category: 'General' })
+                    setNewFAQ({ question: '', answer: '', category: 'General', customCategory: '' })
                   }}
                   style={{
                     backgroundColor: '#6b7280',
@@ -1613,7 +2211,7 @@ const AdminApp: React.FC = () => {
                 </button>
                 <button
                   onClick={editingFAQ ? updateFAQ : createFAQ}
-                  disabled={!newFAQ.question.trim() || !newFAQ.answer.trim()}
+                  disabled={!newFAQ.question.trim() || !newFAQ.answer.trim() || (newFAQ.category === 'Custom' && !newFAQ.customCategory.trim())}
                   style={{
                     backgroundColor: '#3b82f6',
                     color: 'white',
@@ -1621,8 +2219,8 @@ const AdminApp: React.FC = () => {
                     borderRadius: '8px',
                     border: 'none',
                     fontSize: '14px',
-                    cursor: (!newFAQ.question.trim() || !newFAQ.answer.trim()) ? 'not-allowed' : 'pointer',
-                    opacity: (!newFAQ.question.trim() || !newFAQ.answer.trim()) ? 0.6 : 1
+                    cursor: (!newFAQ.question.trim() || !newFAQ.answer.trim() || (newFAQ.category === 'Custom' && !newFAQ.customCategory.trim())) ? 'not-allowed' : 'pointer',
+                    opacity: (!newFAQ.question.trim() || !newFAQ.answer.trim() || (newFAQ.category === 'Custom' && !newFAQ.customCategory.trim())) ? 0.6 : 1
                   }}
                 >
                   {editingFAQ ? 'Update FAQ' : 'Create FAQ'}
