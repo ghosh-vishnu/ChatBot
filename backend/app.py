@@ -3,10 +3,12 @@ from __future__ import annotations
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from router_chat import router as chat_router
 from admin_dashboard_db import router as admin_router
 from auth_router import router as auth_router
+from ticket_api import router as ticket_router
 from sqlite_auth import db_auth
 from analytics_stream import analytics_stream, get_current_analytics
 
@@ -30,6 +32,10 @@ async def startup_event():
 app.include_router(auth_router)
 app.include_router(chat_router)
 app.include_router(admin_router)
+app.include_router(ticket_router)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="../frontend/public"), name="static")
 
 # Add analytics endpoints
 @app.get("/analytics/stream")

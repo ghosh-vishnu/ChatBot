@@ -16,6 +16,47 @@ type Message = {
 }
 
 const ChatWidget: React.FC = () => {
+  // Add CSS animations and futuristic styles
+  React.useEffect(() => {
+    const style = document.createElement('style')
+    style.textContent = `
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-20px) scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .animate-slideIn {
+        animation: slideIn 0.3s ease-out;
+      }
+      .animate-fadeIn {
+        animation: fadeIn 0.2s ease-out;
+      }
+      .futuristic-input {
+        background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+      }
+      .futuristic-input:focus {
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06), 0 0 0 3px rgba(102, 126, 234, 0.1), 0 4px 20px rgba(102, 126, 234, 0.15);
+        transform: translateY(-1px);
+      }
+      .futuristic-section {
+        background: linear-gradient(145deg, #f8fafc 0%, #ffffff 100%);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      }
+    `
+    document.head.appendChild(style)
+    return () => document.head.removeChild(style)
+  }, [])
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -28,11 +69,23 @@ const ChatWidget: React.FC = () => {
   const [typingSuggestions, setTypingSuggestions] = useState<string[]>([])
   const [showTypingSuggestions, setShowTypingSuggestions] = useState(false)
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1)
+  const [faqSuggestions, setFaqSuggestions] = useState<Suggestion[]>([])
+  const [ticketMode, setTicketMode] = useState(false)
+  const [ticketStep, setTicketStep] = useState(0)
+  const [ticketData, setTicketData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    query: ''
+  })
+  const [ticketLoading, setTicketLoading] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const popupTimeoutRef = useRef<number | null>(null)
   const animationTimeoutRef = useRef<number | null>(null)
 
+  // Quick questions fallback (used only if database FAQs are empty)
   const quickQuestions = [
     "What services do you offer?",
     "How can I get started?",
@@ -171,6 +224,11 @@ const ChatWidget: React.FC = () => {
     scrollToBottom()
   }, [messages, isTyping])
 
+  // Fetch FAQ suggestions when component mounts
+  useEffect(() => {
+    fetchFaqSuggestions()
+  }, [])
+
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
@@ -186,10 +244,21 @@ const ChatWidget: React.FC = () => {
     }
 
     setMessages(prev => [...prev, userMessage])
+    const userInput = input.trim()
     setInput('')
     setLoading(true)
     setIsTyping(true)
     setShowSuggestions(false)
+    
+    // Check if we're in ticket mode
+    if (ticketMode) {
+      const handled = handleTicketResponse(userInput)
+      if (handled) {
+        setLoading(false)
+        setIsTyping(false)
+        return
+      }
+    }
     
     try {
       const response = await fetch('http://localhost:8000/chat', {
@@ -198,7 +267,7 @@ const ChatWidget: React.FC = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: userMessage.content
+          query: userInput
         })
       })
 
@@ -258,9 +327,253 @@ const ChatWidget: React.FC = () => {
   }
 
   const handleSuggestionClick = (suggestion: Suggestion) => {
+    if (suggestion.action === 'create_ticket') {
+      // Handle ticket creation
+      startTicketProcess()
+    } else if (suggestion.action === 'contact') {
+      // Handle contact action
+      setShowPopup(true)
+      setPopupMessage('Please contact us at support@venturingdigitally.com or call +91-7543081110')
+    } else if (suggestion.action === 'services') {
+      setInput('What services do you offer?')
+      setShowSuggestions(false)
+      setTimeout(() => sendMessage(), 100)
+    } else {
     setInput(suggestion.text)
     setShowSuggestions(false)
     setTimeout(() => sendMessage(), 100)
+    }
+  }
+
+
+  const fetchFaqSuggestions = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/faq-suggestions?limit=6')
+      if (response.ok) {
+        const data = await response.json()
+        setFaqSuggestions(data.suggestions || [])
+      }
+    } catch (error) {
+      console.error('Error fetching FAQ suggestions:', error)
+    }
+  }
+
+  const startTicketProcess = () => {
+    setTicketMode(true)
+    setTicketStep(1)
+    setTicketData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      query: input
+    })
+    
+    // Add bot message asking for first name
+    const botMessage: Message = {
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: "Great! I'll help you create a support ticket. Let's start with some basic information.\n\n**What's your first name?**",
+      timestamp: new Date()
+    }
+    setMessages(prev => [...prev, botMessage])
+  }
+
+  const handleTicketResponse = (userInput: string) => {
+    if (!ticketMode) return false
+
+    const currentStep = ticketStep
+    let nextStep = currentStep
+    let botResponse = ""
+
+    switch (currentStep) {
+      case 1: // First Name
+        if (userInput.trim()) {
+          setTicketData(prev => ({ ...prev, firstName: userInput.trim() }))
+          nextStep = 2
+          botResponse = "Thanks! Now, **what's your last name?**"
+        } else {
+          botResponse = "Please enter your first name to continue."
+        }
+        break
+
+      case 2: // Last Name
+        if (userInput.trim()) {
+          setTicketData(prev => ({ ...prev, lastName: userInput.trim() }))
+          nextStep = 3
+          botResponse = "Perfect! **What's your email address?**"
+        } else {
+          botResponse = "Please enter your last name to continue."
+        }
+        break
+
+      case 3: // Email
+        if (userInput.trim() && userInput.includes('@')) {
+          setTicketData(prev => ({ ...prev, email: userInput.trim() }))
+          nextStep = 4
+          botResponse = "Great! **What's your phone number?** (Optional - you can type 'skip' if you don't want to provide it)"
+        } else {
+          botResponse = "Please enter a valid email address."
+        }
+        break
+
+      case 4: // Phone
+        if (userInput.toLowerCase() === 'skip' || userInput.trim() === '') {
+          setTicketData(prev => ({ ...prev, phone: '' }))
+        } else {
+          setTicketData(prev => ({ ...prev, phone: userInput.trim() }))
+        }
+        nextStep = 5
+        botResponse = "Excellent! Finally, **please describe your question or issue in detail.**"
+        break
+
+      case 5: // Query
+        if (userInput.trim()) {
+          const updatedData = { ...ticketData, query: userInput.trim() }
+          console.log('Setting query in ticketData:', updatedData)
+          setTicketData(updatedData)
+          nextStep = 6
+          botResponse = "Perfect! Let me create your support ticket now..."
+          // Create ticket with updated data
+          setTimeout(() => {
+            createTicketWithData(updatedData)
+          }, 100)
+          return true
+        } else {
+          botResponse = "Please describe your question or issue to continue."
+        }
+        break
+
+      default:
+        return false
+    }
+
+    setTicketStep(nextStep)
+    
+    // Add bot response
+    const botMessage: Message = {
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: botResponse,
+      timestamp: new Date()
+    }
+    setMessages(prev => [...prev, botMessage])
+    
+    return true
+  }
+
+  const createTicketWithData = async (data: typeof ticketData) => {
+    setTicketLoading(true)
+    console.log('Creating ticket with data:', data)
+    try {
+      const response = await fetch('http://localhost:8000/tickets/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          first_name: data.firstName,
+          last_name: data.lastName,
+          email: data.email,
+          user_query: data.query,
+          phone: data.phone || null
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        
+        // Add success message to chat
+        const successMessage: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: `🎉 **Support ticket created successfully!**\n\n**Your ticket token:** ${result.ticket.token}\n\nOur team will get back to you within 24 hours. You can also contact us directly at support@venturingdigitally.com\n\nIs there anything else I can help you with?`,
+          timestamp: new Date()
+        }
+        setMessages(prev => [...prev, successMessage])
+        
+        // Reset ticket mode
+        setTicketMode(false)
+        setTicketStep(1)
+        setTicketData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          query: ''
+        })
+      } else {
+        throw new Error('Failed to create ticket')
+      }
+    } catch (error) {
+      console.error('Error creating ticket:', error)
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: 'Sorry, there was an error creating your ticket. Please try again or contact us directly at support@venturingdigitally.com',
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, errorMessage])
+    } finally {
+      setTicketLoading(false)
+    }
+  }
+
+  const createTicket = async () => {
+    setTicketLoading(true)
+    console.log('Creating ticket with data:', ticketData)
+    try {
+      const response = await fetch('http://localhost:8000/tickets/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          first_name: ticketData.firstName,
+          last_name: ticketData.lastName,
+          email: ticketData.email,
+          user_query: ticketData.query,
+          phone: ticketData.phone || null
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        
+        // Add success message to chat
+        const successMessage: Message = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: `🎉 **Support ticket created successfully!**\n\n**Your ticket token:** ${result.ticket.token}\n\nOur team will get back to you within 24 hours. You can also contact us directly at support@venturingdigitally.com\n\nIs there anything else I can help you with?`,
+          timestamp: new Date()
+        }
+        setMessages(prev => [...prev, successMessage])
+        
+        // Reset ticket mode
+        setTicketMode(false)
+        setTicketStep(0)
+        setTicketData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          query: ''
+        })
+      } else {
+        throw new Error('Failed to create ticket')
+      }
+    } catch (error) {
+      console.error('Error creating ticket:', error)
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: "Sorry, I couldn't create your ticket right now. Please try again or contact us directly at support@venturingdigitally.com",
+        timestamp: new Date()
+      }
+      setMessages(prev => [...prev, errorMessage])
+    } finally {
+      setTicketLoading(false)
+    }
   }
 
   // Handle typing suggestions with smart filtering
@@ -336,7 +649,7 @@ const ChatWidget: React.FC = () => {
               <div className="flex items-start space-x-2">
                 <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
                   <img 
-                    src="/chatbot-profile.svg" 
+                    src="/static/chatbot-profile.jpg" 
                     alt="Chatbot Profile" 
                     className="w-full h-full object-cover"
                   />
@@ -391,7 +704,7 @@ const ChatWidget: React.FC = () => {
                 <div className="text-center">
                   <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-3 animate-bounce">
                     <img 
-                      src="/chatbot-profile.svg" 
+                      src="/static/chatbot-profile.jpg" 
                       alt="Chatbot Profile" 
                       className="w-full h-full object-cover"
                     />
@@ -401,9 +714,26 @@ const ChatWidget: React.FC = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <p className="text-xs text-gray-500 font-medium">Quick questions:</p>
+                  <p className="text-xs text-gray-500 font-medium">Frequently Asked Questions:</p>
                   <div className="grid grid-cols-1 gap-2">
-                    {quickQuestions.map((question, index) => (
+                    {faqSuggestions.length > 0 ? (
+                      faqSuggestions.map((suggestion, index) => (
+                        <button
+                          key={index}
+                          onClick={() => {
+                            setInput(suggestion.text)
+                            setShowSuggestions(false)
+                            setTimeout(() => sendMessage(), 100)
+                          }}
+                          className="text-left p-3 text-sm bg-white hover:bg-blue-50 text-gray-700 rounded-lg border border-gray-200 hover:border-blue-300 transition-all duration-200 hover:shadow-sm hover:scale-105 transform"
+                          style={{ animationDelay: `${index * 0.1}s` }}
+                        >
+                          {suggestion.text}
+                        </button>
+                      ))
+                    ) : (
+                      // Fallback to hardcoded questions if database is empty
+                      quickQuestions.map((question, index) => (
                       <button
                         key={index}
                         onClick={() => {
@@ -416,7 +746,8 @@ const ChatWidget: React.FC = () => {
                       >
                         {question}
                       </button>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -429,7 +760,7 @@ const ChatWidget: React.FC = () => {
                     {m.role === 'assistant' && (
                       <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 animate-pulse">
                         <img 
-                          src="/chatbot-profile.svg" 
+                          src="/static/chatbot-profile.jpg" 
                           alt="Chatbot Profile" 
                           className="w-full h-full object-cover"
                         />
@@ -483,7 +814,7 @@ const ChatWidget: React.FC = () => {
                 <div className="flex items-end space-x-2">
                   <div className="w-8 h-8 rounded-full overflow-hidden animate-pulse">
                     <img 
-                      src="/chatbot-profile.svg" 
+                      src="/static/chatbot-profile.jpg" 
                       alt="Chatbot Profile" 
                       className="w-full h-full object-cover"
                     />
@@ -592,6 +923,8 @@ const ChatWidget: React.FC = () => {
           </div>
         </div>
       )}
+
+
     </div>
   )
 }

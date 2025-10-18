@@ -123,6 +123,74 @@ def find_matching_faq(query: str, faqs: list) -> dict:
     return best_match if best_score >= 10 else None
 
 
+def _generate_unknown_question_response(query: str, analysis: dict) -> str:
+    """Generate smart response for unknown questions"""
+    
+    # Extract key terms from query
+    query_lower = query.lower()
+    
+    # Check for technology-related questions
+    tech_keywords = ["blockchain", "ai", "machine learning", "python", "react", "angular", "node", "database", "cloud", "devops"]
+    is_tech_question = any(keyword in query_lower for keyword in tech_keywords)
+    
+    # Check for service-related questions
+    service_keywords = ["development", "app", "website", "software", "solution", "service", "training", "internship"]
+    is_service_question = any(keyword in query_lower for keyword in service_keywords)
+    
+    # Check for business-related questions
+    business_keywords = ["pricing", "cost", "price", "quote", "contact", "location", "office", "company"]
+    is_business_question = any(keyword in query_lower for keyword in business_keywords)
+    
+    # Generate contextual response
+    if is_tech_question:
+        response = f"""I don't currently have specific information about "{query}" in my knowledge base, but I can help you get this information!
+
+Our technical team specializes in various technologies and can provide detailed information about:
+• Modern web technologies (React, Angular, Node.js)
+• AI/ML and data analytics solutions
+• Cloud platforms and DevOps practices
+• Mobile app development technologies
+• Database design and optimization
+
+Would you like me to create a support ticket so our technical experts can provide you with detailed information about this topic?"""
+
+    elif is_service_question:
+        response = f"""I don't have specific details about "{query}" in my current knowledge base, but I can help you get comprehensive information!
+
+We offer a wide range of services including:
+• Custom software development
+• Web and mobile app development
+• AI/ML solutions and data analytics
+• Cloud services and DevOps
+• Training and internship programs
+
+Our team can provide detailed information about how we can help with your specific requirements. Would you like me to create a support ticket to connect you with our specialists?"""
+
+    elif is_business_question:
+        response = f"""I don't have specific information about "{query}" readily available, but I can help you get the details you need!
+
+For business-related inquiries, our team can provide information about:
+• Pricing and project costs
+• Company locations and contact details
+• Service packages and solutions
+• Consultation and support options
+
+Would you like me to create a support ticket so our business team can provide you with detailed information?"""
+
+    else:
+        response = f"""I don't currently have specific information about "{query}" in my knowledge base, but I'm here to help you get the answers you need!
+
+Our team at Venturing Digitally can provide information about:
+• Technical solutions and development services
+• Training programs and internships
+• Business services and pricing
+• Company information and support
+
+Would you like me to create a support ticket so our experts can provide you with detailed information about this topic?"""
+
+    return response
+
+
 def save_faqs(faqs: list):
     """Save FAQs to database"""
     try:
@@ -632,7 +700,7 @@ def chat(req: ChatRequest, user_id: str = "default"):
             
             # First check database FAQs
             faqs = load_faqs()
-            print(f"📚 Loaded {len(faqs)} database FAQs")
+            print(f"Loaded {len(faqs)} database FAQs")
             
             if faqs:
                 # Try to find matching FAQ in database
@@ -714,6 +782,42 @@ def chat(req: ChatRequest, user_id: str = "default"):
                     suggestions=[]
                 )
             
+            # Check if this is an unknown question and offer ticket creation
+            analysis = venturing_ai.analyze_query(req.query)
+            if analysis['intent'] != 'greeting':
+                print(f"🔍 No website docs found for: '{req.query}' - Offering ticket creation")
+                
+                # Generate smart response for unknown questions
+                smart_response = _generate_unknown_question_response(req.query, analysis)
+                
+                # Generate suggestions for ticket creation
+                ticket_suggestions = [
+                    {
+                        "text": "Create Support Ticket",
+                        "type": "action",
+                        "category": "ticket",
+                        "action": "create_ticket"
+                    },
+                    {
+                        "text": "Contact Our Team",
+                        "type": "action", 
+                        "category": "contact",
+                        "action": "contact"
+                    },
+                    {
+                        "text": "View Our Services",
+                        "type": "action",
+                        "category": "services",
+                        "action": "services"
+                    }
+                ]
+                
+                return ChatResponse(
+                    answer=smart_response,
+                    sources=["Venturing Digitally Support"],
+                    suggestions=ticket_suggestions
+                )
+            
             return ChatResponse(
                 answer="Sorry, I couldn't find this information on our website.",
                 sources=[],
@@ -747,6 +851,41 @@ def chat(req: ChatRequest, user_id: str = "default"):
             except Exception as e:
                 print(f"FAQ fallback error: {e}")
                 # Continue with normal response
+        
+        # Step 5.5: Smart Unknown Question Handler
+        if analysis['intent'] != 'greeting' and ("Sorry, I couldn't find" in answer or len(answer.strip()) < 50):
+            print(f" No good answer found for: '{req.query}' - Offering ticket creation")
+            
+            # Generate smart response for unknown questions
+            smart_response = _generate_unknown_question_response(req.query, analysis)
+            
+            # Generate suggestions for ticket creation
+            ticket_suggestions = [
+                {
+                    "text": "Create Support Ticket",
+                    "type": "action",
+                    "category": "ticket",
+                    "action": "create_ticket"
+                },
+                {
+                    "text": "Contact Our Team",
+                    "type": "action", 
+                    "category": "contact",
+                    "action": "contact"
+                },
+                {
+                    "text": "View Our Services",
+                    "type": "action",
+                    "category": "services",
+                    "action": "services"
+                }
+            ]
+            
+            return ChatResponse(
+                answer=smart_response,
+                sources=["Venturing Digitally Support"],
+                suggestions=ticket_suggestions
+            )
         
         # Step 6: Generate suggestions
         from suggestion_engine import suggestion_engine
@@ -824,5 +963,17 @@ def search_faqs(query: str, category: str = None):
     from .faq_handler import faq_handler
     results = faq_handler.search_faqs(query, category)
     return {"query": query, "results": results}
+
+
+@router.get("/faq-suggestions")
+def get_faq_suggestions(limit: int = 6):
+    """Get FAQ suggestions for the chatbot"""
+    try:
+        from .faq_handler import faq_handler
+        suggestions = faq_handler.get_suggestions(limit)
+        return {"suggestions": suggestions}
+    except Exception as e:
+        print(f"Error getting FAQ suggestions: {e}")
+        return {"suggestions": []}
 
 

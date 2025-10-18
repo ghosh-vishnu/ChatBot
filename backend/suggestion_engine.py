@@ -377,6 +377,35 @@ class SuggestionEngine:
                 'action': 'download'
             }
         ]
+    
+    def get_database_faq_suggestions(self, limit: int = 6) -> List[Dict]:
+        """Get FAQ suggestions from database"""
+        try:
+            import json
+            import os
+            
+            # Load FAQs from database
+            faqs_file = "data/faqs.json"
+            if os.path.exists(faqs_file):
+                with open(faqs_file, 'r') as f:
+                    faqs = json.load(f)
+            else:
+                return []
+            
+            # Convert FAQs to suggestion format
+            suggestions = []
+            for faq in faqs[:limit]:
+                suggestions.append({
+                    'text': faq.get("question", ""),
+                    'type': 'faq',
+                    'category': faq.get("category", "General"),
+                    'action': 'query'
+                })
+            
+            return suggestions
+        except Exception as e:
+            print(f"Error loading database FAQs: {e}")
+            return []
 
 # Global instance
 suggestion_engine = SuggestionEngine()

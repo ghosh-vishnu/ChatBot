@@ -10,6 +10,7 @@ from typing import List, Dict, Any
 import json
 import os
 from datetime import datetime, timedelta
+from ticket_database import ticket_db
 import random
 
 from sqlite_auth import db_auth
@@ -470,5 +471,43 @@ async def reset_data(current_user: dict = Depends(get_current_admin_user)):
             "faqs_count": 0,
             "ai_models_count": 3
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/admin/notifications")
+async def get_admin_notifications():
+    """Get all notifications for admin"""
+    try:
+        notifications = ticket_db.get_notifications(is_read=False)
+        return {"notifications": notifications}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/admin/notifications/count")
+async def get_notification_count():
+    """Get unread notification count"""
+    try:
+        count = ticket_db.get_unread_notification_count()
+        return {"unread_count": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/admin/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id: int):
+    """Mark a notification as read"""
+    try:
+        success = ticket_db.mark_notification_read(notification_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Notification not found")
+        return {"success": True, "message": "Notification marked as read"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/admin/tickets")
+async def get_admin_tickets():
+    """Get all tickets for admin"""
+    try:
+        tickets = ticket_db.get_all_tickets()
+        return {"tickets": tickets}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

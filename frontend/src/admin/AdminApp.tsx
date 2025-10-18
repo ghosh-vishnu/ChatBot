@@ -52,6 +52,31 @@ interface FAQItem {
   last_updated: string
 }
 
+interface Notification {
+  id: number
+  type: string
+  title: string
+  message: string
+  ticket_token?: string
+  is_read: number
+  created_at: string
+}
+
+interface Ticket {
+  id: number
+  token: string
+  first_name: string
+  last_name: string
+  email: string
+  phone?: string
+  user_query: string
+  status: string
+  created_at: string
+  updated_at: string
+  resolved_at?: string
+  admin_notes?: string
+}
+
 interface UserAnalytics {
   total_users: number
   active_users: number
@@ -103,6 +128,9 @@ const AdminApp: React.FC = () => {
   const [newFAQ, setNewFAQ] = useState({ question: '', answer: '', category: 'General', customCategory: '' })
   const [faqSearchTerm, setFaqSearchTerm] = useState('')
   const [faqFilterCategory, setFaqFilterCategory] = useState('All')
+  const [showExportModal, setShowExportModal] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [exportFormat, setExportFormat] = useState('json')
   
   // Analytics state
   const [analyticsData, setAnalyticsData] = useState({
@@ -118,6 +146,17 @@ const AdminApp: React.FC = () => {
   })
   const [isAnalyticsLoading, setIsAnalyticsLoading] = useState(false)
   const [isRealTimeConnected, setIsRealTimeConnected] = useState(false)
+  
+  // Notification states
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [isNotificationsLoading, setIsNotificationsLoading] = useState(false)
+  
+  // Ticket states
+  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [isTicketsLoading, setIsTicketsLoading] = useState(false)
+  
 
   // Check if user is already logged in
   useEffect(() => {
@@ -135,6 +174,9 @@ const AdminApp: React.FC = () => {
     if (isAuthenticated) {
       fetchAnalyticsData()
       setupRealTimeUpdates()
+      fetchNotifications()
+      fetchNotificationCount()
+      fetchTickets()
     }
     
     // Cleanup on unmount
@@ -193,6 +235,161 @@ const AdminApp: React.FC = () => {
     }))
   }
 
+  // Fetch notifications
+  const fetchNotifications = async () => {
+    setIsNotificationsLoading(true)
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch('http://localhost:8000/admin/notifications', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setNotifications(data.notifications || [])
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error)
+    } finally {
+      setIsNotificationsLoading(false)
+    }
+  }
+
+  // Fetch notification count
+  const fetchNotificationCount = async () => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch('http://localhost:8000/admin/notifications/count', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setUnreadCount(data.unread_count || 0)
+      }
+    } catch (error) {
+      console.error('Error fetching notification count:', error)
+    }
+  }
+
+  // Mark notification as read
+  const markNotificationRead = async (notificationId: number) => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch(`http://localhost:8000/admin/notifications/${notificationId}/read`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (response.ok) {
+        // Update local state
+        setNotifications(prev => 
+          prev.map(notif => 
+            notif.id === notificationId 
+              ? { ...notif, is_read: 1 }
+              : notif
+          )
+        )
+        setUnreadCount(prev => Math.max(0, prev - 1))
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error)
+    }
+  }
+
+  // Fetch tickets
+  const fetchTickets = async () => {
+    setIsTicketsLoading(true)
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch('http://localhost:8000/admin/tickets', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setTickets(data.tickets || [])
+      }
+    } catch (error) {
+      console.error('Error fetching tickets:', error)
+    } finally {
+      setIsTicketsLoading(false)
+    }
+  }
+
+  // Update ticket status
+  const updateTicketStatus = async (token: string, status: string, adminNotes?: string) => {
+    try {
+      const authToken = localStorage.getItem('admin_token')
+      const response = await fetch(`http://localhost:8000/tickets/${token}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status, admin_notes: adminNotes })
+      })
+      
+      if (response.ok) {
+        // Refresh tickets list
+        fetchTickets()
+        return true
+      } else {
+        console.error('Failed to update ticket status')
+        return false
+      }
+    } catch (error) {
+      console.error('Error updating ticket status:', error)
+      return false
+    }
+  }
+
+  // Delete ticket
+  const deleteTicket = async (token: string) => {
+    if (!window.confirm('Are you sure you want to delete this ticket? This action cannot be undone.')) {
+      return false
+    }
+    
+    try {
+      const authToken = localStorage.getItem('admin_token')
+      const response = await fetch(`http://localhost:8000/tickets/${token}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (response.ok) {
+        // Refresh tickets list
+        fetchTickets()
+        return true
+      } else {
+        console.error('Failed to delete ticket')
+        return false
+      }
+    } catch (error) {
+      console.error('Error deleting ticket:', error)
+      return false
+    }
+  }
+
+  // View ticket details (modal or expand)
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
+  const [showTicketModal, setShowTicketModal] = useState(false)
+
   const verifyToken = async (token: string) => {
     try {
       const response = await fetch('http://localhost:8000/auth/verify', {
@@ -216,6 +413,7 @@ const AdminApp: React.FC = () => {
       setIsLoading(false)
     }
   }
+
 
   // Fetch dashboard data from backend
   const fetchDashboardData = async () => {
@@ -562,24 +760,12 @@ const AdminApp: React.FC = () => {
         return renderOverviewTab()
       case 'analytics':
         return renderAnalyticsTab()
-      case 'chat':
-        return renderChatManagementTab()
       case 'faq':
         return renderFAQManagementTab()
-      case 'users':
-        return renderUserAnalyticsTab()
-      case 'ai':
-        return renderAIModelsTab()
-      case 'content':
-        return renderContentManagementTab()
-      case 'integrations':
-        return renderIntegrationsTab()
-      case 'security':
-        return renderSecurityTab()
+      case 'tickets':
+        return renderTicketsTab()
       case 'reports':
         return renderReportsTab()
-      case 'monitoring':
-        return renderMonitoringTab()
       default:
         return renderOverviewTab()
     }
@@ -812,30 +998,310 @@ const AdminApp: React.FC = () => {
     </div>
   )
 
-  // Placeholder functions for other tabs
+  // Import FAQs from CSV file
+  const handleImportFAQs = async (file?: File) => {
+    const fileToImport = file || importFile
+    if (!fileToImport) {
+      alert('Please select a CSV file to import')
+      return
+    }
 
-  const renderChatManagementTab = () => (
-    <div style={{ padding: '24px 16px' }}>
-      <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0 0 24px' }}>
-        Chat Management
-      </h2>
-      <div style={{ 
-        backgroundColor: 'white', 
-        borderRadius: '8px', 
-        padding: '24px', 
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        textAlign: 'center'
-      }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>💬</div>
-        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0 0 8px' }}>
-          Chat Management Tools Coming Soon
-        </h3>
-        <p style={{ color: '#6b7280', margin: '0' }}>
-          Live chat supervision, chat history viewer, message filtering/search, user session management, and chat export functionality will be available here.
-        </p>
-      </div>
-    </div>
-  )
+    try {
+      console.log('Starting import process...')
+      const text = await fileToImport.text()
+      console.log('File content:', text.substring(0, 200) + '...')
+      
+      const faqData = parseCSV(text)
+      console.log('Parsed data:', faqData)
+
+      if (!Array.isArray(faqData)) {
+        alert('Invalid CSV file format. Please check the file structure.')
+        return
+      }
+
+      // Validate FAQ data - must have Category, Question, Answer
+      const validFAQs = faqData.filter(faq => 
+        faq.category && faq.question && faq.answer && 
+        typeof faq.category === 'string' && 
+        typeof faq.question === 'string' && 
+        typeof faq.answer === 'string' &&
+        faq.category.trim() !== '' &&
+        faq.question.trim() !== '' &&
+        faq.answer.trim() !== ''
+      )
+
+      console.log('Valid FAQs:', validFAQs)
+
+      if (validFAQs.length === 0) {
+        alert('No valid FAQs found in the file. Please ensure the CSV has Category, Question, and Answer columns with data.')
+        return
+      }
+
+      // Import FAQs one by one
+      let successCount = 0
+      let errorCount = 0
+      
+      for (const faq of validFAQs) {
+        try {
+          console.log('Importing FAQ:', faq)
+          const response = await fetch('http://localhost:8000/admin/faqs', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              question: faq.question.trim(),
+              answer: faq.answer.trim(),
+              category: faq.category.trim(),
+              customCategory: '',
+              tags: [],
+              priority: 1,
+              isActive: true
+            })
+          })
+
+          if (response.ok) {
+            successCount++
+            console.log('FAQ imported successfully')
+          } else {
+            const errorText = await response.text()
+            console.error('Import failed:', response.status, errorText)
+            errorCount++
+          }
+        } catch (error) {
+          console.error('Error importing FAQ:', error)
+          errorCount++
+        }
+      }
+
+      console.log(`Import complete: ${successCount} success, ${errorCount} errors`)
+
+      if (successCount > 0) {
+        alert(`Successfully imported ${successCount} FAQs!${errorCount > 0 ? ` ${errorCount} FAQs failed to import.` : ''}`)
+        fetchDashboardData() // Refresh the list
+      } else {
+        alert('Failed to import any FAQs. Please check the file format and try again.')
+      }
+      
+      setImportFile(null)
+    } catch (error: any) {
+      console.error('Error importing FAQs:', error)
+      alert(`Error importing FAQs: ${error.message || 'Unknown error occurred'}`)
+    }
+  }
+
+  // Export FAQs to file
+  const handleExportFAQs = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/admin/faqs', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }
+      })
+      
+      if (!response.ok) {
+        alert('Failed to fetch FAQs for export')
+        return
+      }
+
+      const data = await response.json()
+      const faqs = data.faqs || data || []
+      
+      let exportData: string
+      let filename: string
+      let mimeType: string
+
+      if (exportFormat === 'json') {
+        exportData = JSON.stringify({ faqs }, null, 2)
+        filename = `faqs_export_${new Date().toISOString().split('T')[0]}.json`
+        mimeType = 'application/json'
+      } else {
+        exportData = convertToCSV(faqs)
+        filename = `faqs_export_${new Date().toISOString().split('T')[0]}.csv`
+        mimeType = 'text/csv'
+      }
+
+      // Download file
+      const blob = new Blob([exportData], { type: mimeType })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      setShowExportModal(false)
+    } catch (error: any) {
+      console.error('Error exporting FAQs:', error)
+      alert(`Error exporting FAQs: ${error.message || 'Unknown error occurred'}`)
+    }
+  }
+
+  // Parse CSV data - expects Category, Question, Answer columns
+  const parseCSV = (csvText: string) => {
+    try {
+      const lines = csvText.split('\n').filter(line => line.trim() !== '')
+      
+      if (lines.length < 2) {
+        throw new Error('CSV file must have at least a header row and one data row')
+      }
+
+      // Better CSV parsing that handles commas within quotes
+      const parseCSVLine = (line: string) => {
+        const result = []
+        let current = ''
+        let inQuotes = false
+        
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i]
+          
+          if (char === '"') {
+            inQuotes = !inQuotes
+          } else if (char === ',' && !inQuotes) {
+            result.push(current.trim())
+            current = ''
+          } else {
+            current += char
+          }
+        }
+        
+        result.push(current.trim())
+        return result
+      }
+
+      const headers = parseCSVLine(lines[0]).map(h => h.replace(/"/g, '').toLowerCase())
+      const faqs = []
+
+      // Check if required columns exist
+      const requiredColumns = ['category', 'question', 'answer']
+      const missingColumns = requiredColumns.filter(col => !headers.includes(col))
+      
+      if (missingColumns.length > 0) {
+        throw new Error(`Missing required columns: ${missingColumns.join(', ')}. CSV must have Category, Question, and Answer columns.`)
+      }
+
+      for (let i = 1; i < lines.length; i++) {
+        if (lines[i].trim()) {
+          const values = parseCSVLine(lines[i]).map(v => v.replace(/"/g, ''))
+          const faq: any = {}
+          
+          headers.forEach((header, index) => {
+            if (values[index] !== undefined) {
+              faq[header] = values[index]
+            }
+          })
+          
+          // Only add if all required fields have values
+          if (faq.category && faq.question && faq.answer) {
+            faqs.push(faq)
+          }
+        }
+      }
+
+      console.log('Parsed FAQs:', faqs) // Debug log
+      return faqs
+    } catch (error) {
+      console.error('CSV parsing error:', error)
+      throw new Error(`CSV parsing failed: ${error.message}`)
+    }
+  }
+
+  // Convert FAQs to CSV
+  const convertToCSV = (faqs: any[]) => {
+    const headers = ['question', 'answer', 'category', 'customCategory', 'tags', 'priority', 'isActive']
+    const csvRows = [headers.join(',')]
+
+    faqs.forEach(faq => {
+      const row = headers.map(header => {
+        let value = faq[header] || ''
+        if (header === 'tags' && Array.isArray(value)) {
+          value = value.join(';')
+        }
+        return `"${value}"`
+      })
+      csvRows.push(row.join(','))
+    })
+
+    return csvRows.join('\n')
+  }
+
+  // Generate comprehensive report data
+  const generateReportData = () => {
+    const totalFAQs = faqs.length
+    const totalConversations = conversations.length
+    const avgSuccessRate = totalFAQs > 0 ? Math.round(faqs.reduce((sum, faq) => sum + faq.success_rate, 0) / totalFAQs) : 0
+    const totalViews = faqs.reduce((sum, faq) => sum + faq.views, 0)
+    
+    const categoryStats = getUniqueCategories().map(category => {
+      const categoryFAQs = faqs.filter(faq => faq.category === category)
+      const avgSuccessRate = categoryFAQs.length > 0 
+        ? Math.round(categoryFAQs.reduce((sum, faq) => sum + faq.success_rate, 0) / categoryFAQs.length)
+        : 0
+      const totalViews = categoryFAQs.reduce((sum, faq) => sum + faq.views, 0)
+      
+      return {
+        category,
+        faqCount: categoryFAQs.length,
+        avgSuccessRate,
+        totalViews
+      }
+    })
+
+    const topPerformingFAQs = faqs
+      .sort((a, b) => b.success_rate - a.success_rate)
+      .slice(0, 10)
+      .map(faq => ({
+        question: faq.question,
+        category: faq.category,
+        successRate: faq.success_rate,
+        views: faq.views
+      }))
+
+    const mostViewedFAQs = faqs
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 10)
+      .map(faq => ({
+        question: faq.question,
+        category: faq.category,
+        successRate: faq.success_rate,
+        views: faq.views
+      }))
+
+    return {
+      summary: {
+        totalFAQs,
+        totalConversations,
+        avgSuccessRate,
+        totalViews,
+        reportDate: new Date().toISOString()
+      },
+      categoryStats,
+      topPerformingFAQs,
+      mostViewedFAQs,
+      recentConversations: conversations.slice(0, 20).map(conv => ({
+        userMessage: conv.user_message,
+        botResponse: conv.bot_response,
+        timestamp: conv.timestamp
+      }))
+    }
+  }
+
+  // Download report as JSON
+  const downloadReport = (reportData: any, filename: string) => {
+    const jsonData = JSON.stringify(reportData, null, 2)
+    const blob = new Blob([jsonData], { type: 'application/json' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${filename}_${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(a)
+    a.click()
+    window.URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+  }
+
+  // Placeholder functions for other tabs
 
   const renderFAQManagementTab = () => (
     <div style={{ padding: '24px 16px' }}>
@@ -848,6 +1314,50 @@ const AdminApp: React.FC = () => {
         <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0' }}>
           FAQ Management
         </h2>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <label style={{ 
+            backgroundColor: '#3b82f6', 
+            color: 'white', 
+            padding: '12px 24px', 
+            borderRadius: '8px', 
+            border: 'none', 
+            fontSize: '14px', 
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            📥 Import FAQs
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) {
+                  setImportFile(file)
+                  handleImportFAQs(file)
+                }
+              }}
+              style={{ display: 'none' }}
+            />
+          </label>
+          <button
+            onClick={() => setShowExportModal(true)}
+            style={{ 
+              backgroundColor: '#8b5cf6', 
+              color: 'white', 
+              padding: '12px 24px', 
+              borderRadius: '8px', 
+              border: 'none', 
+              fontSize: '14px', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            📤 Export FAQs
+          </button>
         <button
           onClick={() => setShowAddFAQ(true)}
           style={{ 
@@ -863,8 +1373,9 @@ const AdminApp: React.FC = () => {
             gap: '8px'
           }}
         >
-        Add New FAQ
+            ➕ Add New FAQ
         </button>
+        </div>
       </div>
 
       {/* Search and Filter Controls */}
@@ -1124,8 +1635,8 @@ const AdminApp: React.FC = () => {
               <div>
                 <div style={{ fontSize: '18px', marginBottom: '8px' }}>No FAQs found</div>
                 <div style={{ fontSize: '14px' }}>Click "Add New FAQ" to get started.</div>
-              </div>
-            )}
+          </div>
+        )}
           </div>
         )}
       </div>
@@ -1143,7 +1654,7 @@ const AdminApp: React.FC = () => {
         <div>
           <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0' }}>
             Real-time Analytics
-          </h2>
+      </h2>
           <div style={{ 
             display: 'flex', 
             alignItems: 'center', 
@@ -1190,8 +1701,8 @@ const AdminApp: React.FC = () => {
         gap: '20px',
         marginBottom: '32px'
       }}>
-        <div style={{ 
-          backgroundColor: 'white', 
+      <div style={{ 
+        backgroundColor: 'white', 
           borderRadius: '12px', 
           padding: '24px', 
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
@@ -1200,7 +1711,7 @@ const AdminApp: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
             <div style={{ 
               backgroundColor: '#10b981', 
-              borderRadius: '8px', 
+        borderRadius: '8px', 
               padding: '12px',
               marginRight: '12px'
             }}>
@@ -1219,7 +1730,7 @@ const AdminApp: React.FC = () => {
         <div style={{ 
           backgroundColor: 'white', 
           borderRadius: '12px', 
-          padding: '24px', 
+        padding: '24px', 
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
           border: '1px solid #e5e7eb'
         }}>
@@ -1231,19 +1742,19 @@ const AdminApp: React.FC = () => {
               marginRight: '12px'
             }}>
               💬
-            </div>
+      </div>
             <div>
               <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>Messages Today</div>
               <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#111827' }}>
                 {analyticsData.messagesToday}
-              </div>
+    </div>
             </div>
           </div>
           <div style={{ fontSize: '12px', color: '#3b82f6' }}>+8% from yesterday</div>
         </div>
 
-        <div style={{ 
-          backgroundColor: 'white', 
+      <div style={{ 
+        backgroundColor: 'white', 
           borderRadius: '12px', 
           padding: '24px', 
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
@@ -1252,7 +1763,7 @@ const AdminApp: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
             <div style={{ 
               backgroundColor: '#f59e0b', 
-              borderRadius: '8px', 
+        borderRadius: '8px', 
               padding: '12px',
               marginRight: '12px'
             }}>
@@ -1271,7 +1782,7 @@ const AdminApp: React.FC = () => {
         <div style={{ 
           backgroundColor: 'white', 
           borderRadius: '12px', 
-          padding: '24px', 
+        padding: '24px', 
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
           border: '1px solid #e5e7eb'
         }}>
@@ -1312,7 +1823,7 @@ const AdminApp: React.FC = () => {
         }}>
           <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#111827', margin: '0 0 20px' }}>
             Popular Questions
-          </h3>
+        </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {analyticsData.popularQuestions.map((item, index) => (
               <div key={index} style={{ 
@@ -1416,166 +1927,1256 @@ const AdminApp: React.FC = () => {
     </div>
   )
 
-  const renderUserAnalyticsTab = () => (
+  const renderTicketsTab = () => (
     <div style={{ padding: '24px 16px' }}>
-      <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0 0 24px' }}>
-        User Analytics
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '24px' 
+      }}>
+        <div>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0' }}>
+            Support Tickets
       </h2>
+          <p style={{ color: '#6b7280', margin: '8px 0 0' }}>
+            Manage and respond to user support tickets
+          </p>
+        </div>
+        <button
+          onClick={fetchTickets}
+          disabled={isTicketsLoading}
+          style={{ 
+            backgroundColor: '#3b82f6', 
+            color: 'white', 
+            padding: '12px 24px', 
+            borderRadius: '8px', 
+            border: 'none', 
+            fontSize: '14px', 
+            cursor: isTicketsLoading ? 'not-allowed' : 'pointer',
+            opacity: isTicketsLoading ? 0.6 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          {isTicketsLoading ? '⏳' : '🔄'} Refresh
+        </button>
+      </div>
+
+      {/* Tickets Stats */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+        gap: '16px',
+        marginBottom: '24px'
+      }}>
       <div style={{ 
         backgroundColor: 'white', 
         borderRadius: '8px', 
-        padding: '24px', 
+          padding: '20px', 
         boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
         textAlign: 'center'
       }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>👥</div>
-        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0 0 8px' }}>
-          User Analytics Dashboard Coming Soon
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>🎫</div>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827' }}>
+            {tickets.length}
+      </div>
+          <div style={{ color: '#6b7280', fontSize: '14px' }}>Total Tickets</div>
+    </div>
+
+      <div style={{ 
+        backgroundColor: 'white', 
+        borderRadius: '8px', 
+          padding: '20px', 
+        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+        textAlign: 'center'
+      }}>
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>⏳</div>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b' }}>
+            {tickets.filter(t => t.status === 'pending').length}
+      </div>
+          <div style={{ color: '#6b7280', fontSize: '14px' }}>Pending</div>
+    </div>
+
+      <div style={{ 
+        backgroundColor: 'white', 
+        borderRadius: '8px', 
+          padding: '20px', 
+        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+        textAlign: 'center'
+      }}>
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>✅</div>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#10b981' }}>
+            {tickets.filter(t => t.status === 'resolved').length}
+          </div>
+          <div style={{ color: '#6b7280', fontSize: '14px' }}>Resolved</div>
+        </div>
+      </div>
+
+      {/* Tickets List */}
+      <div style={{ 
+        backgroundColor: 'white', 
+        borderRadius: '8px', 
+        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+        overflow: 'hidden'
+      }}>
+        <div style={{ 
+          padding: '20px', 
+          borderBottom: '1px solid #e5e7eb',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>All Tickets</h3>
+          <div style={{ fontSize: '14px', color: '#6b7280' }}>
+            {tickets.length} tickets
+          </div>
+        </div>
+        
+        {isTicketsLoading ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
+            Loading tickets...
+          </div>
+        ) : tickets.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎫</div>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', margin: '0 0 8px' }}>
+              No tickets yet
         </h3>
-        <p style={{ color: '#6b7280', margin: '0' }}>
-          User behavior tracking, geographic distribution, device/browser analytics, session duration tracking, and user satisfaction metrics will be available here.
+            <p style={{ margin: 0 }}>
+              Support tickets will appear here when users create them.
         </p>
       </div>
+        ) : (
+          <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+            {tickets.map((ticket) => (
+              <div
+                key={ticket.id}
+                style={{
+                  padding: '20px',
+                  borderBottom: '1px solid #f3f4f6',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f9fafb'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'white'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                      <span style={{ 
+                        fontSize: '14px', 
+                        fontWeight: '600', 
+                        color: '#111827',
+                        backgroundColor: '#f3f4f6',
+                        padding: '4px 8px',
+                        borderRadius: '4px'
+                      }}>
+                        {ticket.token}
+                      </span>
+                      <span style={{ 
+                        fontSize: '12px', 
+                        padding: '4px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: ticket.status === 'pending' ? '#fef3c7' : 
+                                        ticket.status === 'resolved' ? '#d1fae5' : '#e5e7eb',
+                        color: ticket.status === 'pending' ? '#92400e' : 
+                               ticket.status === 'resolved' ? '#065f46' : '#374151'
+                      }}>
+                        {ticket.status.toUpperCase()}
+                      </span>
+                    </div>
+                    
+                    <div style={{ marginBottom: '8px' }}>
+                      <div style={{ fontSize: '16px', fontWeight: '600', color: '#111827', marginBottom: '4px' }}>
+                        {ticket.first_name} {ticket.last_name}
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '4px' }}>
+                        {ticket.email} {ticket.phone && `• ${ticket.phone}`}
+                      </div>
+                    </div>
+                    
+                    <div style={{ 
+                      fontSize: '14px', 
+                      color: '#374151',
+                      backgroundColor: '#f9fafb',
+                      padding: '12px',
+                      borderRadius: '6px',
+                      marginBottom: '8px'
+                    }}>
+                      <strong>Query:</strong> {ticket.user_query}
+                    </div>
+                    
+                    <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                      Created: {new Date(ticket.created_at).toLocaleString()}
+                      {ticket.resolved_at && (
+                        <span> • Resolved: {new Date(ticket.resolved_at).toLocaleString()}</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: '8px', marginLeft: '16px' }}>
+                    <button
+                      onClick={() => {
+                        console.log('Selected ticket:', ticket)
+                        setSelectedTicket(ticket)
+                        setShowTicketModal(true)
+                      }}
+                      style={{
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      View Details
+                    </button>
+                    {ticket.status === 'pending' && (
+                      <button
+                        onClick={async () => {
+                          const success = await updateTicketStatus(ticket.token, 'resolved', 'Resolved by admin')
+                          if (success) {
+                            alert('Ticket resolved successfully!')
+                          } else {
+                            alert('Failed to resolve ticket. Please try again.')
+                          }
+                        }}
+                        style={{
+                          backgroundColor: '#10b981',
+                          color: 'white',
+                          border: 'none',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Resolve
+                      </button>
+                    )}
+                    <button
+                      onClick={async () => {
+                        const success = await deleteTicket(ticket.token)
+                        if (success) {
+                          alert('Ticket deleted successfully!')
+                        } else {
+                          alert('Failed to delete ticket. Please try again.')
+                        }
+                      }}
+                      style={{
+                        backgroundColor: '#dc2626',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Ticket Details Modal */}
+      {showTicketModal && selectedTicket && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '600px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '20px',
+              paddingBottom: '16px',
+              borderBottom: '1px solid #e5e7eb'
+            }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '600' }}>
+                Ticket Details - {selectedTicket.token}
+              </h2>
+              <button
+                onClick={() => setShowTicketModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '8px',
+                  borderRadius: '6px',
+                  fontSize: '18px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'grid', gap: '16px' }}>
+              {/* Status */}
+              <div>
+                <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '4px', display: 'block' }}>
+                  Status
+                </label>
+                <span style={{ 
+                  fontSize: '14px', 
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  backgroundColor: selectedTicket.status === 'pending' ? '#fef3c7' : 
+                                  selectedTicket.status === 'resolved' ? '#d1fae5' : '#e5e7eb',
+                  color: selectedTicket.status === 'pending' ? '#92400e' : 
+                         selectedTicket.status === 'resolved' ? '#065f46' : '#374151'
+                }}>
+                  {selectedTicket.status.toUpperCase()}
+                </span>
+              </div>
+
+              {/* User Information */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '4px', display: 'block' }}>
+                    First Name
+                  </label>
+                  <div style={{ padding: '8px 12px', backgroundColor: '#f9fafb', borderRadius: '6px', fontSize: '14px' }}>
+                    {selectedTicket.first_name}
+                  </div>
+                </div>
+                <div>
+                  <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '4px', display: 'block' }}>
+                    Last Name
+                  </label>
+                  <div style={{ padding: '8px 12px', backgroundColor: '#f9fafb', borderRadius: '6px', fontSize: '14px' }}>
+                    {selectedTicket.last_name}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '4px', display: 'block' }}>
+                  Email
+                </label>
+                <div style={{ padding: '8px 12px', backgroundColor: '#f9fafb', borderRadius: '6px', fontSize: '14px' }}>
+                  {selectedTicket.email}
+                </div>
+              </div>
+
+              {selectedTicket.phone && (
+                <div>
+                  <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '4px', display: 'block' }}>
+                    Phone
+                  </label>
+                  <div style={{ padding: '8px 12px', backgroundColor: '#f9fafb', borderRadius: '6px', fontSize: '14px' }}>
+                    {selectedTicket.phone}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '4px', display: 'block' }}>
+                  User Query
+                </label>
+                <div style={{ 
+                  padding: '12px', 
+                  backgroundColor: '#f9fafb', 
+                  borderRadius: '6px', 
+                  fontSize: '14px',
+                  minHeight: '80px',
+                  whiteSpace: 'pre-wrap'
+                }}>
+                  {selectedTicket.user_query || 'No query provided'}
+                </div>
+              </div>
+
+              {/* Timestamps */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '4px', display: 'block' }}>
+                    Created At
+                  </label>
+                  <div style={{ padding: '8px 12px', backgroundColor: '#f9fafb', borderRadius: '6px', fontSize: '14px' }}>
+                    {new Date(selectedTicket.created_at).toLocaleString()}
+                  </div>
+                </div>
+                {selectedTicket.resolved_at && (
+                  <div>
+                    <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '4px', display: 'block' }}>
+                      Resolved At
+                    </label>
+                    <div style={{ padding: '8px 12px', backgroundColor: '#f9fafb', borderRadius: '6px', fontSize: '14px' }}>
+                      {new Date(selectedTicket.resolved_at).toLocaleString()}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Admin Notes */}
+              {selectedTicket.admin_notes && (
+                <div>
+                  <label style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '4px', display: 'block' }}>
+                    Admin Notes
+                  </label>
+                  <div style={{ 
+                    padding: '12px', 
+                    backgroundColor: '#fef3c7', 
+                    borderRadius: '6px', 
+                    fontSize: '14px',
+                    whiteSpace: 'pre-wrap'
+                  }}>
+                    {selectedTicket.admin_notes}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '12px', 
+              marginTop: '24px', 
+              paddingTop: '20px', 
+              borderTop: '1px solid #e5e7eb',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={() => setShowTicketModal(false)}
+                style={{
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+              {selectedTicket.status === 'pending' && (
+                <button
+                  onClick={async () => {
+                    const success = await updateTicketStatus(selectedTicket.token, 'resolved', 'Resolved by admin')
+                    if (success) {
+                      alert('Ticket resolved successfully!')
+                      setShowTicketModal(false)
+                    } else {
+                      alert('Failed to resolve ticket. Please try again.')
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    padding: '10px 20px',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Mark as Resolved
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 
-  const renderAIModelsTab = () => (
-    <div style={{ padding: '24px 16px' }}>
-      <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0 0 24px' }}>
-        AI Model Management
-      </h2>
-      <div style={{ 
-        backgroundColor: 'white', 
-        borderRadius: '8px', 
-        padding: '24px', 
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        textAlign: 'center'
-      }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🤖</div>
-        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0 0 8px' }}>
-          AI Model Management Coming Soon
-        </h3>
-        <p style={{ color: '#6b7280', margin: '0' }}>
-          Model performance monitoring, response accuracy tracking, training data management, model version control, and A/B testing for responses will be available here.
-        </p>
-      </div>
-    </div>
-  )
-
-  const renderContentManagementTab = () => (
-    <div style={{ padding: '24px 16px' }}>
-      <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0 0 24px' }}>
-        Content Management
-      </h2>
-      <div style={{ 
-        backgroundColor: 'white', 
-        borderRadius: '8px', 
-        padding: '24px', 
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        textAlign: 'center'
-      }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>📝</div>
-        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0 0 8px' }}>
-          Content Management System Coming Soon
-        </h3>
-        <p style={{ color: '#6b7280', margin: '0' }}>
-          Knowledge base editor, content versioning, approval workflows, content performance tracking, and SEO optimization tools will be available here.
-        </p>
-      </div>
-    </div>
-  )
-
-  const renderIntegrationsTab = () => (
-    <div style={{ padding: '24px 16px' }}>
-      <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0 0 24px' }}>
-        🔗 Integration Management
-      </h2>
-      <div style={{ 
-        backgroundColor: 'white', 
-        borderRadius: '8px', 
-        padding: '24px', 
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        textAlign: 'center'
-      }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔗</div>
-        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0 0 8px' }}>
-          Integration Management Coming Soon
-        </h3>
-        <p style={{ color: '#6b7280', margin: '0' }}>
-          API key management, third-party integrations, webhook configuration, external service monitoring, and data synchronization will be available here.
-        </p>
-      </div>
-    </div>
-  )
-
-  const renderSecurityTab = () => (
-    <div style={{ padding: '24px 16px' }}>
-      <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0 0 24px' }}>
-        Security & Access
-      </h2>
-      <div style={{ 
-        backgroundColor: 'white', 
-        borderRadius: '8px', 
-        padding: '24px', 
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        textAlign: 'center'
-      }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div>
-        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0 0 8px' }}>
-          Security & Access Management Coming Soon
-        </h3>
-        <p style={{ color: '#6b7280', margin: '0' }}>
-          User role management, permission controls, audit logs, security monitoring, and data encryption settings will be available here.
-        </p>
-      </div>
-    </div>
-  )
 
   const renderReportsTab = () => (
     <div style={{ padding: '24px 16px' }}>
-      <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0 0 24px' }}>
-        Reporting & Insights
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '24px' 
+      }}>
+        <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0' }}>
+          📊 Reports & Analytics
       </h2>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            onClick={() => {
+              const reportData = generateReportData()
+              downloadReport(reportData, 'comprehensive_report')
+            }}
+            style={{ 
+              backgroundColor: '#10b981', 
+              color: 'white', 
+              padding: '12px 24px', 
+              borderRadius: '8px', 
+              border: 'none', 
+              fontSize: '14px', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            📥 Download Report
+          </button>
+          <button
+            onClick={() => {
+              const reportData = generateReportData()
+              downloadReport(reportData, 'faq_performance_report')
+            }}
+            style={{ 
+              backgroundColor: '#3b82f6', 
+              color: 'white', 
+              padding: '12px 24px', 
+              borderRadius: '8px', 
+              border: 'none', 
+              fontSize: '14px', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            📈 FAQ Performance
+          </button>
+        </div>
+      </div>
+
+      {/* Report Summary Cards */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+        gap: '20px',
+        marginBottom: '32px'
+      }}>
       <div style={{ 
         backgroundColor: 'white', 
+          borderRadius: '12px', 
+          padding: '24px', 
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ 
+              backgroundColor: '#10b981', 
         borderRadius: '8px', 
+              padding: '12px',
+              marginRight: '12px'
+            }}>
+              📊
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>Total FAQs</div>
+              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#111827' }}>
+                {faqs.length}
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '12px', color: '#10b981' }}>+12% from last month</div>
+        </div>
+
+        <div style={{ 
+          backgroundColor: 'white', 
+          borderRadius: '12px', 
         padding: '24px', 
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        textAlign: 'center'
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ 
+              backgroundColor: '#3b82f6', 
+              borderRadius: '8px', 
+              padding: '12px',
+              marginRight: '12px'
+            }}>
+              💬
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>Total Conversations</div>
+              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#111827' }}>
+                {conversations.length}
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '12px', color: '#3b82f6' }}>+8% from last month</div>
+        </div>
+
+        <div style={{ 
+          backgroundColor: 'white', 
+          borderRadius: '12px', 
+          padding: '24px', 
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ 
+              backgroundColor: '#f59e0b', 
+              borderRadius: '8px', 
+              padding: '12px',
+              marginRight: '12px'
+            }}>
+              🎯
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>Success Rate</div>
+              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#111827' }}>
+                {faqs.length > 0 ? Math.round(faqs.reduce((sum, faq) => sum + faq.success_rate, 0) / faqs.length) : 0}%
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '12px', color: '#f59e0b' }}>+5% from last month</div>
+        </div>
+
+        <div style={{ 
+          backgroundColor: 'white', 
+          borderRadius: '12px', 
+          padding: '24px', 
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          border: '1px solid #e5e7eb'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
+            <div style={{ 
+              backgroundColor: '#8b5cf6', 
+              borderRadius: '8px', 
+              padding: '12px',
+              marginRight: '12px'
+            }}>
+              📈
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>Total Views</div>
+              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#111827' }}>
+                {faqs.length > 0 ? faqs.reduce((sum, faq) => sum + faq.views, 0) : 0}
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '12px', color: '#8b5cf6' }}>+15% from last month</div>
+        </div>
+      </div>
+
+      {/* FAQ Performance Report */}
+      <div style={{ 
+        backgroundColor: 'white', 
+        borderRadius: '12px', 
+        padding: '24px', 
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        border: '1px solid #e5e7eb',
+        marginBottom: '24px'
       }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
-        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0 0 8px' }}>
-          Reporting & Insights Coming Soon
+        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0 0 20px' }}>
+          📊 FAQ Performance Report
         </h3>
-        <p style={{ color: '#6b7280', margin: '0' }}>
-          Custom reports, data visualization, export capabilities, scheduled reports, and performance dashboards will be available here.
-        </p>
+        
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+          gap: '20px',
+          marginBottom: '24px'
+        }}>
+          <div>
+            <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#374151', margin: '0 0 12px' }}>
+              Top Performing FAQs
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {faqs
+                .sort((a, b) => b.success_rate - a.success_rate)
+                .slice(0, 5)
+                .map((faq, index) => (
+                  <div key={faq.id} style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    padding: '8px 12px',
+                    backgroundColor: '#f9fafb',
+                    borderRadius: '6px'
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '2px' }}>
+                        #{index + 1} {faq.category}
+                      </div>
+                      <div style={{ fontSize: '13px', fontWeight: '500', color: '#111827' }}>
+                        {faq.question.length > 50 ? faq.question.substring(0, 50) + '...' : faq.question}
+                      </div>
+                    </div>
+                    <div style={{ 
+                      fontSize: '12px', 
+                      fontWeight: '600', 
+                      color: faq.success_rate > 80 ? '#10b981' : faq.success_rate > 60 ? '#f59e0b' : '#dc2626'
+                    }}>
+                      {faq.success_rate}%
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          <div>
+            <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#374151', margin: '0 0 12px' }}>
+              Most Viewed FAQs
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {faqs
+                .sort((a, b) => b.views - a.views)
+                .slice(0, 5)
+                .map((faq, index) => (
+                  <div key={faq.id} style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    padding: '8px 12px',
+                    backgroundColor: '#f9fafb',
+                    borderRadius: '6px'
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '2px' }}>
+                        #{index + 1} {faq.category}
+                      </div>
+                      <div style={{ fontSize: '13px', fontWeight: '500', color: '#111827' }}>
+                        {faq.question.length > 50 ? faq.question.substring(0, 50) + '...' : faq.question}
+                      </div>
+                    </div>
+                    <div style={{ 
+                      fontSize: '12px', 
+                      fontWeight: '600', 
+                      color: '#3b82f6'
+                    }}>
+                      {faq.views} views
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Category Performance */}
+      <div style={{ 
+        backgroundColor: 'white', 
+        borderRadius: '12px', 
+        padding: '24px', 
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        border: '1px solid #e5e7eb',
+        marginBottom: '24px'
+      }}>
+        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0 0 20px' }}>
+          📈 Category Performance
+        </h3>
+        
+              {/* Enhanced Professional Vertical Bar Chart for Success Rates */}
+              <div style={{ marginBottom: '32px' }}>
+                <div style={{ marginBottom: '24px' }}>
+                  <h4 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0 0 4px' }}>
+                    Success Rate by Category
+                  </h4>
+                  <p style={{ fontSize: '14px', color: '#6b7280', margin: '0' }}>
+                    Performance metrics across different FAQ categories
+                  </p>
+                </div>
+                
+                {/* Chart Container */}
+                <div style={{ 
+                  backgroundColor: 'white',
+                  borderRadius: '16px',
+                  border: '1px solid #e5e7eb',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  overflow: 'hidden'
+                }}>
+                  {/* Chart Header with Y-Axis Label */}
+                  <div style={{
+                    padding: '24px 24px 0 24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '20px'
+                  }}>
+                    <div style={{
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      color: '#374151',
+                      writingMode: 'vertical-rl',
+                      textOrientation: 'mixed',
+                      transform: 'rotate(180deg)',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      Success Rate (%)
+                    </div>
+                    
+                    {/* Y-Axis Tick Labels */}
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      height: '300px',
+                      fontSize: '12px',
+                      color: '#6b7280',
+                      minWidth: '30px'
+                    }}>
+                      <div style={{ textAlign: 'right' }}>100%</div>
+                      <div style={{ textAlign: 'right' }}>80%</div>
+                      <div style={{ textAlign: 'right' }}>60%</div>
+                      <div style={{ textAlign: 'right' }}>40%</div>
+                      <div style={{ textAlign: 'right' }}>20%</div>
+                      <div style={{ textAlign: 'right' }}>0%</div>
+                    </div>
+
+                    {/* Y-Axis Line */}
+                    <div style={{
+                      width: '2px',
+                      height: '300px',
+                      backgroundColor: '#d1d5db',
+                      marginRight: '16px'
+                    }}></div>
+
+                    {/* Chart Area with Horizontal Scroll */}
+                    <div style={{
+                      flex: 1,
+                      overflowX: 'auto',
+                      overflowY: 'hidden',
+                      paddingBottom: '40px'
+                    }}>
+                      <div style={{
+                        minWidth: 'max-content',
+                        height: '320px',
+                        display: 'flex',
+                        alignItems: 'end',
+                        gap: '20px',
+                        paddingRight: '24px',
+                        position: 'relative'
+                      }}>
+                        {/* Subtle Gridlines */}
+                        {[0, 20, 40, 60, 80, 100].map((value, index) => (
+                          <div key={value} style={{
+                            position: 'absolute',
+                            left: '0',
+                            right: '24px',
+                            top: `${index * 20}px`,
+                            height: '1px',
+                            backgroundColor: '#f8fafc',
+                            zIndex: 1
+                          }}></div>
+                        ))}
+
+                        {/* Bars */}
+                        {getUniqueCategories().map(category => {
+                          const categoryFAQs = faqs.filter(faq => faq.category === category)
+                          const avgSuccessRate = categoryFAQs.length > 0 
+                            ? Math.round(categoryFAQs.reduce((sum, faq) => sum + faq.success_rate, 0) / categoryFAQs.length)
+                            : 0
+                          
+                          return (
+                            <div key={category} style={{ 
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              width: '90px',
+                              height: '100%',
+                              justifyContent: 'flex-end',
+                              position: 'relative',
+                              zIndex: 2
+                            }}>
+                              {/* Enhanced Percentage Label */}
+                              <div style={{
+                                position: 'absolute',
+                                top: '-35px',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                color: '#1f2937',
+                                backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                                padding: '6px 10px',
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                whiteSpace: 'nowrap',
+                                border: '1px solid #e5e7eb',
+                                backdropFilter: 'blur(8px)',
+                                minWidth: '40px',
+                                textAlign: 'center'
+                              }}>
+                                {avgSuccessRate}%
+                              </div>
+
+                              {/* Enhanced Bar with Gradient */}
+                              <div style={{ 
+                                width: '60px',
+                                height: `${Math.max(avgSuccessRate, 2)}%`,
+                                background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                                borderRadius: '8px 8px 0 0',
+                                marginBottom: '30px',
+                                position: 'relative',
+                                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                                minHeight: '6px',
+                                boxShadow: '0 6px 16px rgba(59, 130, 246, 0.4), 0 2px 4px rgba(59, 130, 246, 0.2)',
+                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                cursor: 'pointer'
+                              }}>
+                                {/* Bar Hover Effect */}
+                                <div style={{
+                                  position: 'absolute',
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  bottom: 0,
+                                  background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 100%)',
+                                  borderRadius: '8px 8px 0 0',
+                                  opacity: 0,
+                                  transition: 'opacity 0.3s ease'
+                                }}></div>
+                              </div>
+                              
+                              {/* Enhanced X-Axis Label with 30° rotation */}
+                              <div style={{ 
+                                fontSize: '11px', 
+                                color: '#374151', 
+                                fontWeight: '600',
+                                textAlign: 'center',
+                                transform: 'rotate(-30deg)',
+                                transformOrigin: 'center',
+                                whiteSpace: 'nowrap',
+                                maxWidth: '140px',
+                                marginTop: '12px',
+                                height: '50px',
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                justifyContent: 'center',
+                                letterSpacing: '0.025em'
+                              }}>
+                                {category}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Enhanced X-Axis Line */}
+                  <div style={{
+                    marginLeft: '90px',
+                    marginRight: '24px',
+                    height: '2px',
+                    backgroundColor: '#d1d5db',
+                    borderRadius: '1px'
+                  }}></div>
+
+                  {/* Enhanced X-Axis Label */}
+                  <div style={{
+                    padding: '20px 24px 28px 24px',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      color: '#374151',
+                      letterSpacing: '0.025em'
+                    }}>
+                      Category
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+        {/* Bar Graph for FAQ Counts */}
+        <div style={{ marginBottom: '32px' }}>
+          <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#374151', margin: '0 0 16px' }}>
+            FAQ Count by Category
+          </h4>
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '12px',
+            height: '300px',
+            overflowY: 'auto'
+          }}>
+            {getUniqueCategories().map(category => {
+              const categoryFAQs = faqs.filter(faq => faq.category === category)
+              const faqCount = categoryFAQs.length
+              const maxCount = Math.max(...getUniqueCategories().map(cat => 
+                faqs.filter(faq => faq.category === cat).length
+              ))
+              const percentage = maxCount > 0 ? (faqCount / maxCount) * 100 : 0
+              
+              return (
+                <div key={category} style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '12px',
+                  padding: '8px 0'
+                }}>
+                  <div style={{ 
+                    minWidth: '120px', 
+                    fontSize: '12px', 
+                    fontWeight: '500', 
+                    color: '#374151'
+                  }}>
+                    {category.length > 20 ? category.substring(0, 20) + '...' : category}
+                  </div>
+                  <div style={{ 
+                    flex: 1, 
+                    height: '20px', 
+                    backgroundColor: '#e5e7eb', 
+                    borderRadius: '10px',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${percentage}%`,
+                      backgroundColor: '#3b82f6',
+                      borderRadius: '10px',
+                      transition: 'width 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                      paddingRight: '8px'
+                    }}>
+                      <span style={{ 
+                        fontSize: '10px', 
+                        fontWeight: '600', 
+                        color: 'white',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                      }}>
+                        {faqCount}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Bar Graph for Total Views */}
+        <div>
+          <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#374151', margin: '0 0 16px' }}>
+            Total Views by Category
+          </h4>
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '12px',
+            height: '300px',
+            overflowY: 'auto'
+          }}>
+            {getUniqueCategories().map(category => {
+              const categoryFAQs = faqs.filter(faq => faq.category === category)
+              const totalViews = categoryFAQs.reduce((sum, faq) => sum + faq.views, 0)
+              const maxViews = Math.max(...getUniqueCategories().map(cat => 
+                faqs.filter(faq => faq.category === cat).reduce((sum, faq) => sum + faq.views, 0)
+              ))
+              const percentage = maxViews > 0 ? (totalViews / maxViews) * 100 : 0
+              
+              return (
+                <div key={category} style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '12px',
+                  padding: '8px 0'
+                }}>
+                  <div style={{ 
+                    minWidth: '120px', 
+                    fontSize: '12px', 
+                    fontWeight: '500', 
+                    color: '#374151'
+                  }}>
+                    {category.length > 20 ? category.substring(0, 20) + '...' : category}
+                  </div>
+                  <div style={{ 
+                    flex: 1, 
+                    height: '20px', 
+                    backgroundColor: '#e5e7eb', 
+                    borderRadius: '10px',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${percentage}%`,
+                      backgroundColor: '#8b5cf6',
+                      borderRadius: '10px',
+                      transition: 'width 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                      paddingRight: '8px'
+                    }}>
+                      <span style={{ 
+                        fontSize: '10px', 
+                        fontWeight: '600', 
+                        color: 'white',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                      }}>
+                        {totalViews}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Performance Trends Line Graph */}
+      <div style={{ 
+        backgroundColor: 'white', 
+        borderRadius: '12px', 
+        padding: '24px', 
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        border: '1px solid #e5e7eb',
+        marginBottom: '24px'
+      }}>
+        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0 0 20px' }}>
+          📈 Performance Trends (Last 7 Days)
+        </h3>
+        
+        <div style={{ 
+          height: '200px', 
+          display: 'flex', 
+          alignItems: 'end', 
+          justifyContent: 'space-between',
+          padding: '20px',
+          backgroundColor: '#f9fafb',
+        borderRadius: '8px', 
+          border: '1px solid #e5e7eb'
+        }}>
+          {Array.from({ length: 7 }, (_, i) => {
+            const date = new Date()
+            date.setDate(date.getDate() - (6 - i))
+            const dayName = date.toLocaleDateString('en', { weekday: 'short' })
+            
+            // Generate mock data for demonstration
+            const mockConversations = Math.floor(Math.random() * 20) + 5
+            const mockSuccessRate = Math.floor(Math.random() * 40) + 60
+            const height = (mockConversations / 25) * 100
+            
+            return (
+              <div key={i} style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center',
+                flex: 1,
+                margin: '0 4px'
+              }}>
+                <div style={{ 
+                  width: '100%',
+                  height: `${height}px`,
+                  backgroundColor: '#3b82f6',
+                  borderRadius: '4px 4px 0 0',
+                  marginBottom: '8px',
+                  position: 'relative',
+                  transition: 'height 0.3s ease'
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    top: '-20px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    fontSize: '10px',
+                    fontWeight: '600',
+                    color: '#374151',
+                    backgroundColor: 'white',
+                    padding: '2px 4px',
+                    borderRadius: '4px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                  }}>
+                    {mockConversations}
+                  </div>
+                </div>
+                <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: '500' }}>
+                  {dayName}
+                </div>
+                <div style={{ fontSize: '8px', color: '#9ca3af', marginTop: '2px' }}>
+                  {mockSuccessRate}%
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          gap: '24px', 
+          marginTop: '16px',
+          fontSize: '12px',
+          color: '#6b7280'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '12px', height: '12px', backgroundColor: '#3b82f6', borderRadius: '2px' }}></div>
+            <span>Daily Conversations</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '12px', height: '12px', backgroundColor: '#10b981', borderRadius: '2px' }}></div>
+            <span>Success Rate %</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div style={{ 
+        backgroundColor: 'white', 
+        borderRadius: '12px', 
+        padding: '24px', 
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        border: '1px solid #e5e7eb'
+      }}>
+        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0 0 20px' }}>
+          🕒 Recent Activity
+        </h3>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {conversations.slice(0, 10).map((conversation, index) => (
+            <div key={conversation.id} style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              padding: '12px 16px',
+              backgroundColor: '#f9fafb',
+              borderRadius: '8px',
+              border: '1px solid #e5e7eb'
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827', marginBottom: '4px' }}>
+                  {conversation.user_message}
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                  {conversation.bot_response}
+                </div>
+              </div>
+              <div style={{ fontSize: '12px', color: '#9ca3af', marginLeft: '16px' }}>
+                {new Date(conversation.timestamp).toLocaleString()}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
 
-  const renderMonitoringTab = () => (
-    <div style={{ padding: '24px 16px' }}>
-      <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0 0 24px' }}>
-        System Monitoring
-      </h2>
-      <div style={{ 
-        backgroundColor: 'white', 
-        borderRadius: '8px', 
-        padding: '24px', 
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
-        textAlign: 'center'
-      }}>
-        <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚙️</div>
-        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0 0 8px' }}>
-          Advanced System Monitoring Coming Soon
-        </h3>
-        <p style={{ color: '#6b7280', margin: '0' }}>
-          Server health monitoring, performance metrics, error tracking, backup management, and system alerts will be available here.
-        </p>
-      </div>
-    </div>
-  )
 
   if (isLoading) {
     return (
@@ -1961,6 +3562,163 @@ const AdminApp: React.FC = () => {
                 }}></div>
                 <span style={{ fontSize: '14px', color: '#6b7280' }}>Online</span>
               </div>
+              
+              {/* Notification Bell */}
+              <div style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '8px',
+                    borderRadius: '8px',
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                  </svg>
+                  {unreadCount > 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '4px',
+                      right: '4px',
+                      backgroundColor: '#ef4444',
+                      color: 'white',
+                      borderRadius: '50%',
+                      width: '18px',
+                      height: '18px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}>
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </div>
+                  )}
+                </button>
+                
+                {/* Notification Dropdown */}
+                {showNotifications && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: '0',
+                    backgroundColor: 'white',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+                    minWidth: '320px',
+                    maxHeight: '400px',
+                    overflowY: 'auto',
+                    zIndex: 1000,
+                    marginTop: '8px'
+                  }}>
+                    <div style={{
+                      padding: '16px',
+                      borderBottom: '1px solid #e5e7eb',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>Notifications</h3>
+                      <button
+                        onClick={() => setShowNotifications(false)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '4px'
+                        }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="18" y1="6" x2="6" y2="18"/>
+                          <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                      {isNotificationsLoading ? (
+                        <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
+                          Loading notifications...
+                        </div>
+                      ) : notifications.length === 0 ? (
+                        <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
+                          No notifications
+                        </div>
+                      ) : (
+                        notifications.map((notification) => (
+                          <div
+                            key={notification.id}
+                            onClick={() => {
+                              if (notification.is_read === 0) {
+                                markNotificationRead(notification.id)
+                              }
+                            }}
+                            style={{
+                              padding: '12px 16px',
+                              borderBottom: '1px solid #f3f4f6',
+                              cursor: 'pointer',
+                              backgroundColor: notification.is_read === 0 ? '#fef3c7' : 'white',
+                              transition: 'background-color 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#f9fafb'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = notification.is_read === 0 ? '#fef3c7' : 'white'
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ 
+                                  fontSize: '14px', 
+                                  fontWeight: '600', 
+                                  color: '#111827',
+                                  marginBottom: '4px'
+                                }}>
+                                  {notification.title}
+                                </div>
+                                <div style={{ 
+                                  fontSize: '13px', 
+                                  color: '#6b7280',
+                                  marginBottom: '4px'
+                                }}>
+                                  {notification.message}
+                                </div>
+                                <div style={{ 
+                                  fontSize: '12px', 
+                                  color: '#9ca3af'
+                                }}>
+                                  {new Date(notification.created_at).toLocaleString()}
+                                </div>
+                              </div>
+                              {notification.is_read === 0 && (
+                                <div style={{
+                                  width: '8px',
+                                  height: '8px',
+                                  backgroundColor: '#3b82f6',
+                                  borderRadius: '50%',
+                                  marginLeft: '8px',
+                                  marginTop: '4px'
+                                }}></div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
               <button
                 onClick={handleLogout}
                 style={{ 
@@ -2002,15 +3760,9 @@ const AdminApp: React.FC = () => {
             {[
               { id: 'overview', label: '📊 Overview', icon: '📊' },
               { id: 'analytics', label: '📈 Analytics', icon: '📈' },
-              { id: 'chat', label: '💬 Chat Management', icon: '💬' },
               { id: 'faq', label: '📄 FAQ Management', icon: '📄' },
-              { id: 'users', label: '👥 User Analytics', icon: '👥' },
-              { id: 'ai', label: '🤖 AI Models', icon: '🤖' },
-              { id: 'content', label: '📝 Content', icon: '📝' },
-              { id: 'integrations', label: '🔗 Integrations', icon: '🔗' },
-              { id: 'security', label: '🔒 Security', icon: '🔒' },
-              { id: 'reports', label: '📋 Reports', icon: '📋' },
-              { id: 'monitoring', label: '⚙️ Monitoring', icon: '⚙️' }
+              { id: 'tickets', label: '🎫 Tickets', icon: '🎫' },
+              { id: 'reports', label: '📋 Reports', icon: '📋' }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -2230,8 +3982,106 @@ const AdminApp: React.FC = () => {
           </div>
         </div>
       )}
+
+
+      {/* Export Modal */}
+      {showExportModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '32px',
+            width: '90%',
+            maxWidth: '500px',
+            maxHeight: '80vh',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827', margin: '0 0 24px' }}>
+              📤 Export FAQs
+            </h3>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px', display: 'block' }}>
+                Export Format
+              </label>
+              <select
+                value={exportFormat}
+                onChange={(e) => setExportFormat(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }}
+              >
+                <option value="json">JSON (.json)</option>
+                <option value="csv">CSV (.csv)</option>
+              </select>
+            </div>
+
+            <div style={{ 
+              backgroundColor: '#f0f9ff', 
+              padding: '16px', 
+              borderRadius: '8px', 
+              marginBottom: '20px' 
+            }}>
+              <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: '0 0 8px' }}>
+                Export Information:
+              </h4>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '0' }}>
+                All FAQs will be exported in {exportFormat.toUpperCase()} format. 
+                The file will be automatically downloaded to your device.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowExportModal(false)}
+                style={{
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExportFAQs}
+                style={{
+                  backgroundColor: '#8b5cf6',
+                  color: 'white',
+                  padding: '12px 24px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Export FAQs
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
+
 }
 
 export default AdminApp

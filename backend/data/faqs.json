@@ -5,7 +5,7 @@
     "answer": "Thik hu tum kaise ho",
     "category": "Custom",
     "customCategory": "Emotion",
-    "views": 2,
+    "views": 9,
     "success_rate": 85,
     "last_updated": "2025-10-14T14:17:20.968255"
   },
@@ -15,7 +15,7 @@
     "answer": "We offer flexible pricing models including hourly rates, fixed-price projects, and retainer packages. Contact us for a customized quote based on your specific requirements.",
     "category": "Pricing",
     "customCategory": "",
-    "views": 5,
+    "views": 10,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:02:12.477038"
   },
@@ -115,7 +115,7 @@
     "answer": "Yes, we share profiles with hiring partners and help with resume building and interview preparation.",
     "category": "Custom",
     "customCategory": "Internship & Training",
-    "views": 0,
+    "views": 2,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:10.311434"
   },
@@ -455,7 +455,7 @@
     "answer": "DevOps is an approach combining development and operations for faster software delivery.",
     "category": "Custom",
     "customCategory": "DevOps and Cloud",
-    "views": 1,
+    "views": 5,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:14.948358"
   },
@@ -595,7 +595,7 @@
     "answer": "Yes, our company is based in India.",
     "category": "Custom",
     "customCategory": "Company Information",
-    "views": 0,
+    "views": 4,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:17.177635"
   },
@@ -625,7 +625,7 @@
     "answer": "We provide web development, mobile app development, custom software, AI/ML, DevOps, and analytics services.",
     "category": "Custom",
     "customCategory": "Services Overview",
-    "views": 2,
+    "views": 19,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:17.745111"
   },
@@ -755,7 +755,7 @@
     "answer": "Yes, we provide complete school ERP.",
     "category": "Custom",
     "customCategory": "Software Products & Solutions",
-    "views": 0,
+    "views": 2,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:20.359781"
   },
@@ -845,7 +845,7 @@
     "answer": "Yes, we offer ongoing support and maintenance.",
     "category": "Custom",
     "customCategory": "Pricing & Support",
-    "views": 1,
+    "views": 11,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:21.474293"
   },
@@ -865,7 +865,7 @@
     "answer": "Yes, 24/7 support is available.",
     "category": "Custom",
     "customCategory": "Pricing & Support",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:21.640103"
   },
@@ -888,5 +888,65 @@
     "views": 0,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:21.843060"
+  },
+  {
+    "id": "faq_90_1760775653",
+    "question": "Python Internship",
+    "answer": "Yes I Have",
+    "category": "Internship",
+    "customCategory": "",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-18T13:50:53.368339"
+  },
+  {
+    "id": "faq_91_1760775783",
+    "question": "Python Internship",
+    "answer": "Yes I Have",
+    "category": "Internship",
+    "customCategory": "",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-18T13:53:03.770240"
+  },
+  {
+    "id": "faq_92_1760775783",
+    "question": "is your Behaviour is Good?",
+    "answer": "Yes",
+    "category": "Emotion",
+    "customCategory": "",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-18T13:53:03.857663"
+  },
+  {
+    "id": "faq_93_1760776808",
+    "question": "Python Internship",
+    "answer": "Yes I Have",
+    "category": "Internship",
+    "customCategory": "",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-18T14:10:08.682141"
+  },
+  {
+    "id": "faq_94_1760777153",
+    "question": "Python Internship",
+    "answer": "Yes I Have",
+    "category": "Internship",
+    "customCategory": "",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-18T14:15:53.191438"
+  },
+  {
+    "id": "faq_95_1760777153",
+    "question": "is your Behaviour is Good?",
+    "answer": "Yes",
+    "category": "Emotion",
+    "customCategory": "",
+    "views": 0,
+    "success_rate": 85,
+    "last_updated": "2025-10-18T14:15:53.464510"
   }
 ]
