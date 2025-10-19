@@ -8,7 +8,7 @@ import sqlite3
 import os
 import secrets
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List
 from jose import JWTError, jwt
 from dotenv import load_dotenv
@@ -36,9 +36,9 @@ class SQLiteAuth:
         try:
             self.connection = sqlite3.connect(DB_FILE)
             self.connection.row_factory = sqlite3.Row
-            print("✅ Connected to SQLite database")
+            print("Connected to SQLite database")
         except Exception as e:
-            print(f"❌ Error connecting to SQLite: {e}")
+            print(f"Error connecting to SQLite: {e}")
             raise
     
     def _init_tables(self):
@@ -273,6 +273,147 @@ class SQLiteAuth:
             print("ℹ️  Admin user already exists.")
         
         print("✅ SQLite database initialized successfully!")
+
+    def update_user_profile(self, user_id: int, full_name: str = None, email: str = None, username: str = None) -> Optional[Dict]:
+        """Update user profile information"""
+        conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+        cursor = conn.cursor()
+        
+        try:
+            # Build update query dynamically
+            update_fields = []
+            params = []
+            
+            if full_name is not None:
+                update_fields.append("full_name = ?")
+                params.append(full_name)
+            
+            if email is not None:
+                update_fields.append("email = ?")
+                params.append(email)
+            
+            if username is not None:
+                update_fields.append("username = ?")
+                params.append(username)
+            
+            if not update_fields:
+                return None
+            
+            # Add updated_at timestamp
+            update_fields.append("updated_at = ?")
+            params.append(datetime.now(timezone.utc))
+            
+            # Add user_id for WHERE clause
+            params.append(user_id)
+            
+            query = f"UPDATE users SET {', '.join(update_fields)} WHERE id = ?"
+            cursor.execute(query, params)
+            conn.commit()
+            
+            # Get updated user
+            cursor.execute('''
+                SELECT id, username, email, password_hash, full_name, is_admin, is_active, created_at, last_login, profile_image
+                FROM users WHERE id = ?
+            ''', (user_id,))
+            
+            user = cursor.fetchone()
+            if user:
+                return {
+                    "id": user[0],
+                    "username": user[1],
+                    "email": user[2],
+                    "password_hash": user[3],
+                    "full_name": user[4],
+                    "is_admin": bool(user[5]),
+                    "is_active": bool(user[6]),
+                    "created_at": user[7],
+                    "last_login": user[8],
+                    "profile_image": user[9]
+                }
+            return None
+            
+        except Exception as e:
+            print(f"Error updating user profile: {e}")
+            return None
+        finally:
+            conn.close()
+
+    def update_user_password(self, user_id: int, new_password: str) -> bool:
+        """Update user password"""
+        conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+        cursor = conn.cursor()
+        
+        try:
+            # Hash the new password
+            password_hash = self.hash_password(new_password)
+            
+            cursor.execute('''
+                UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?
+            ''', (password_hash, datetime.now(timezone.utc), user_id))
+            
+            conn.commit()
+            return cursor.rowcount > 0
+            
+        except Exception as e:
+            print(f"Error updating password: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def update_user_profile_image(self, user_id: int, profile_image: str) -> bool:
+        """Update user profile image"""
+        conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('''
+                UPDATE users SET profile_image = ?, updated_at = ? WHERE id = ?
+            ''', (profile_image, datetime.now(timezone.utc), user_id))
+            
+            conn.commit()
+            return cursor.rowcount > 0
+            
+        except Exception as e:
+            print(f"Error updating profile image: {e}")
+            return False
+        finally:
+            conn.close()
+
+    def get_all_faqs(self):
+        """Get all FAQs from database"""
+        try:
+            conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, question, answer, category, views, success_rate, created_at, updated_at
+                FROM faqs 
+                WHERE is_active = 1
+                ORDER BY created_at DESC
+            """)
+            faqs = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+            return faqs
+        except Exception as e:
+            print(f"Error getting FAQs: {e}")
+            return []
+
+    def update_faq_views(self, faq_id: int):
+        """Update FAQ views count"""
+        try:
+            conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE faqs 
+                SET views = views + 1, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (faq_id,))
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            print(f"Error updating FAQ views: {e}")
+            return False
 
 # Global database instance
 db_auth = SQLiteAuth()

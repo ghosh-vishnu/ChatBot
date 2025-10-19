@@ -3,6 +3,7 @@ import ChatWidget from './components/ChatWidget'
 import './index.css'
 
 export default function App() {
+
   return (
     <div>
       {/* Only Chat Widget for Website Visitors */}

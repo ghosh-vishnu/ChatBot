@@ -85,13 +85,6 @@ class TicketDatabase:
             """, (token, first_name, last_name, email, phone, user_query, now, now))
             conn.commit()
             
-            # Create notification for admin
-            self.create_notification(
-                notification_type="new_ticket",
-                title="New Support Ticket Created",
-                message=f"New ticket {token} created by {first_name} {last_name} ({email})",
-                ticket_token=token
-            )
             
             # Send email notification to user
             try:

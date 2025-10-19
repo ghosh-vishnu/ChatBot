@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from ticket_database import ticket_db
+from notification_stream import broadcast_new_notification
 
 router = APIRouter()
 
@@ -32,6 +33,15 @@ async def create_ticket(ticket_data: TicketCreate):
             user_query=ticket_data.user_query,
             phone=ticket_data.phone
         )
+        
+        # Broadcast notification to admin dashboard
+        await broadcast_new_notification(
+            notification_type="ticket_created",
+            title="New Support Ticket",
+            message=f"New ticket from {ticket_data.first_name} {ticket_data.last_name}",
+            ticket_token=new_ticket["token"]
+        )
+        
         return {
             "success": True,
             "message": "Ticket created successfully!",

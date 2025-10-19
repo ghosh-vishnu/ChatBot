@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 def load_faqs():
-    """Load FAQs from database"""
+    """Load FAQs from JSON file (same as admin dashboard)"""
     try:
         faqs_file = "data/faqs.json"
         if os.path.exists(faqs_file):
@@ -707,8 +707,8 @@ def chat(req: ChatRequest, user_id: str = "default"):
                 matching_faq = find_matching_faq(req.query, faqs)
                 
                 if matching_faq:
-                    print(f"Found matching database FAQ: {matching_faq['question']}")
-                    # Update views count
+                    print(f"Found matching FAQ: {matching_faq['question']}")
+                    # Update views count in JSON file
                     matching_faq["views"] = matching_faq.get("views", 0) + 1
                     save_faqs(faqs)
                     

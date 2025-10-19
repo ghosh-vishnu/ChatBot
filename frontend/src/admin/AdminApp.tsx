@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import ProfileModal from '../components/ProfileModal'
 
 // Extend Window interface for analytics EventSource
 declare global {
@@ -77,6 +78,34 @@ interface Ticket {
   admin_notes?: string
 }
 
+interface User {
+  id: number
+  username: string
+  email: string
+  full_name: string
+  role_id: number
+  is_active: boolean
+  created_at: string
+  last_login?: string
+  role_name?: string
+  profile_image?: string
+}
+
+interface Role {
+  id: number
+  name: string
+  description: string
+  is_system_role: boolean
+  created_at: string
+}
+
+interface Permission {
+  id: number
+  name: string
+  module: string
+  description: string
+}
+
 interface UserAnalytics {
   total_users: number
   active_users: number
@@ -132,6 +161,56 @@ const AdminApp: React.FC = () => {
   const [importFile, setImportFile] = useState<File | null>(null)
   const [exportFormat, setExportFormat] = useState('json')
   
+  // User Management state
+  const [users, setUsers] = useState<User[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
+  const [permissions, setPermissions] = useState<Permission[]>([])
+  const [showUserModal, setShowUserModal] = useState(false)
+  const [showRoleModal, setShowRoleModal] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [editingRole, setEditingRole] = useState<Role | null>(null)
+  const [newUser, setNewUser] = useState({
+    username: '',
+    email: '',
+    password: '',
+    full_name: '',
+    role_id: 0
+  })
+  const [newRole, setNewRole] = useState({
+    name: '',
+    description: '',
+    permission_ids: [] as number[]
+  })
+  const [userSearchTerm, setUserSearchTerm] = useState('')
+  const [userFilterRole, setUserFilterRole] = useState('All')
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [userPermissions, setUserPermissions] = useState<Permission[]>([])
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  
+  // Role-based access control
+  const hasAccess = (tabId: string) => {
+    if (!currentUser) return false
+    
+    const userRole = currentUser.role_name || currentUser.user_type
+    
+    switch (tabId) {
+      case 'users':
+        // Only Super Admin can access User Management
+        return userRole === 'Super Admin' || userRole === 'admin'
+      case 'overview':
+      case 'analytics':
+      case 'reports':
+        // Super Admin, Manager can access
+        return ['Super Admin', 'Manager', 'admin'].includes(userRole)
+      case 'faq':
+      case 'tickets':
+        // Super Admin, Support can access
+        return ['Super Admin', 'Support', 'admin'].includes(userRole)
+      default:
+        return true
+    }
+  }
+  
   // Analytics state
   const [analyticsData, setAnalyticsData] = useState({
     liveUsers: 0,
@@ -152,6 +231,7 @@ const AdminApp: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0)
   const [showNotifications, setShowNotifications] = useState(false)
   const [isNotificationsLoading, setIsNotificationsLoading] = useState(false)
+  const [notificationEventSource, setNotificationEventSource] = useState<EventSource | null>(null)
   
   // Ticket states
   const [tickets, setTickets] = useState<Ticket[]>([])
@@ -161,9 +241,19 @@ const AdminApp: React.FC = () => {
   // Check if user is already logged in
   useEffect(() => {
     const token = localStorage.getItem('admin_token')
-    if (token) {
-      // Verify token with backend
-      verifyToken(token)
+    const userData = localStorage.getItem('admin_user_data')
+    
+    if (token && userData) {
+      try {
+        const parsedUser = JSON.parse(userData)
+        setCurrentUser(parsedUser)
+        // Verify token with backend
+        verifyToken(token)
+      } catch (e) {
+        localStorage.removeItem('admin_token')
+        localStorage.removeItem('admin_user_data')
+        setIsLoading(false)
+      }
     } else {
       setIsLoading(false)
     }
@@ -177,6 +267,10 @@ const AdminApp: React.FC = () => {
       fetchNotifications()
       fetchNotificationCount()
       fetchTickets()
+      fetchUsers()
+      fetchRoles()
+      fetchPermissions()
+      setupRealTimeNotifications()
     }
     
     // Cleanup on unmount
@@ -184,8 +278,29 @@ const AdminApp: React.FC = () => {
       if (window.analyticsEventSource) {
         window.analyticsEventSource.close()
       }
+      cleanupNotifications()
     }
   }, [isAuthenticated])
+
+  // Redirect to first available tab if current tab is not accessible
+  useEffect(() => {
+    if (isAuthenticated && currentUser && !hasAccess(activeTab)) {
+      const availableTabs = ['overview', 'analytics', 'faq', 'tickets', 'reports', 'users']
+      const firstAvailableTab = availableTabs.find(tab => hasAccess(tab))
+      if (firstAvailableTab) {
+        setActiveTab(firstAvailableTab)
+      }
+    }
+  }, [isAuthenticated, currentUser, activeTab])
+
+  // Load user management data when users tab is active
+  useEffect(() => {
+    if (isAuthenticated && activeTab === 'users') {
+      fetchUsers()
+      fetchRoles()
+      fetchPermissions()
+    }
+  }, [isAuthenticated, activeTab])
 
   // Setup real-time updates using Server-Sent Events
   const setupRealTimeUpdates = () => {
@@ -306,6 +421,166 @@ const AdminApp: React.FC = () => {
     }
   }
 
+  // Clear all notifications
+  const clearAllNotifications = async () => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch('http://localhost:8000/admin/notifications/clear', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (response.ok) {
+        setNotifications([])
+        setUnreadCount(0)
+      }
+    } catch (error) {
+      console.error('Error clearing notifications:', error)
+    }
+  }
+
+  // Delete specific notification
+  const deleteNotification = async (notificationId: number) => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch(`http://localhost:8000/admin/notifications/${notificationId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (response.ok) {
+        setNotifications(prev => prev.filter(notif => notif.id !== notificationId))
+        setUnreadCount(prev => Math.max(0, prev - 1))
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error)
+    }
+  }
+
+  // Setup real-time notifications
+  const setupRealTimeNotifications = async () => {
+    if (notificationEventSource) {
+      notificationEventSource.close()
+    }
+
+    const token = localStorage.getItem('admin_token')
+    if (!token) return
+
+    // First verify the token is still valid
+    try {
+      const response = await fetch('http://localhost:8000/auth/verify', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (!response.ok) {
+        console.log('Token expired, logging out')
+        handleLogout()
+        return
+      }
+    } catch (error) {
+      console.error('Token verification failed:', error)
+      return
+    }
+
+    const eventSource = new EventSource(`http://localhost:8000/admin/notifications/stream?token=${token}`)
+    
+    eventSource.onopen = () => {
+      console.log('Connected to notification stream')
+    }
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        
+        switch (data.type) {
+          case 'connected':
+            console.log('Notification stream connected')
+            break
+            
+          case 'new_notification':
+            const newNotification = data.data
+            setNotifications(prev => [newNotification, ...prev])
+            if (newNotification.is_read === 0) {
+              setUnreadCount(prev => prev + 1)
+            }
+            break
+            
+          case 'notification_read':
+            setNotifications(prev => 
+              prev.map(notif => 
+                notif.id === data.notification_id 
+                  ? { ...notif, is_read: 1 }
+                  : notif
+              )
+            )
+            setUnreadCount(prev => Math.max(0, prev - 1))
+            break
+            
+          case 'notification_deleted':
+            setNotifications(prev => prev.filter(notif => notif.id !== data.notification_id))
+            setUnreadCount(prev => Math.max(0, prev - 1))
+            break
+            
+          case 'notifications_cleared':
+            setNotifications([])
+            setUnreadCount(0)
+            break
+            
+          case 'notification':
+            // Initial notification data
+            const notification = data.data
+            setNotifications(prev => {
+              const exists = prev.some(n => n.id === notification.id)
+              if (!exists) {
+                return [notification, ...prev]
+              }
+              return prev
+            })
+            break
+            
+          case 'ping':
+            // Keep-alive ping
+            break
+        }
+      } catch (error) {
+        console.error('Error parsing notification data:', error)
+      }
+    }
+
+    eventSource.onerror = (error) => {
+      console.error('Notification stream error:', error)
+      // Check if it's a 401 error (unauthorized) - don't retry
+      if (eventSource.readyState === EventSource.CLOSED) {
+        console.log('Notification stream closed due to authentication error')
+        return
+      }
+      // Attempt to reconnect after 5 seconds only for other errors
+      setTimeout(() => {
+        if (isAuthenticated) {
+          setupRealTimeNotifications()
+        }
+      }, 5000)
+    }
+
+    setNotificationEventSource(eventSource)
+  }
+
+  // Cleanup notification stream
+  const cleanupNotifications = () => {
+    if (notificationEventSource) {
+      notificationEventSource.close()
+      setNotificationEventSource(null)
+    }
+  }
+
   // Fetch tickets
   const fetchTickets = async () => {
     setIsTicketsLoading(true)
@@ -399,15 +674,36 @@ const AdminApp: React.FC = () => {
       })
 
       if (response.ok) {
+        const data = await response.json()
+        // Update user data from server response
+        if (data.user) {
+          setCurrentUser(data.user)
+          localStorage.setItem('admin_user_data', JSON.stringify(data.user))
+        } else {
+          // Fallback to localStorage if server doesn't return user data
+          const userData = localStorage.getItem('admin_user_data')
+          if (userData) {
+            try {
+              const parsedUser = JSON.parse(userData)
+              setCurrentUser(parsedUser)
+            } catch (e) {
+              console.error('Error parsing user data:', e)
+            }
+          }
+        }
         setIsAuthenticated(true)
         fetchDashboardData()
       } else {
         localStorage.removeItem('admin_token')
+        localStorage.removeItem('admin_user_data')
+        setCurrentUser(null)
         setIsAuthenticated(false)
       }
     } catch (error) {
       console.error('Token verification error:', error)
       localStorage.removeItem('admin_token')
+      localStorage.removeItem('admin_user_data')
+      setCurrentUser(null)
       setIsAuthenticated(false)
     } finally {
       setIsLoading(false)
@@ -493,6 +789,163 @@ const AdminApp: React.FC = () => {
     }
   }, [isAuthenticated])
 
+  // User Management API functions
+  const fetchUsers = async () => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch('http://localhost:8000/api/users/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setUsers(data.users || [])
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error)
+    }
+  }
+
+  const fetchRoles = async () => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch('http://localhost:8000/api/users/roles', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setRoles(data.roles || [])
+      }
+    } catch (error) {
+      console.error('Error fetching roles:', error)
+    }
+  }
+
+  const fetchPermissions = async () => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch('http://localhost:8000/api/users/permissions', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setPermissions(data.permissions || [])
+      }
+    } catch (error) {
+      console.error('Error fetching permissions:', error)
+    }
+  }
+
+  const createUser = async (userData: any) => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch('http://localhost:8000/api/users/users', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(userData)
+      })
+      if (response.ok) {
+        await fetchUsers()
+        return { success: true }
+      } else {
+        const error = await response.json()
+        return { success: false, error: error.detail }
+      }
+    } catch (error) {
+      return { success: false, error: 'Network error' }
+    }
+  }
+
+  const updateUser = async (userId: number, userData: any) => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch(`http://localhost:8000/api/users/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(userData)
+      })
+      if (response.ok) {
+        await fetchUsers()
+        return { success: true }
+      } else {
+        const error = await response.json()
+        return { success: false, error: error.detail }
+      }
+    } catch (error) {
+      return { success: false, error: 'Network error' }
+    }
+  }
+
+  const deleteUser = async (userId: number) => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch(`http://localhost:8000/api/users/users/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (response.ok) {
+        await fetchUsers()
+        return { success: true }
+      } else {
+        const error = await response.json()
+        return { success: false, error: error.detail }
+      }
+    } catch (error) {
+      return { success: false, error: 'Network error' }
+    }
+  }
+
+  const createRole = async (roleData: any) => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch('http://localhost:8000/api/users/roles', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(roleData)
+      })
+      if (response.ok) {
+        await fetchRoles()
+        return { success: true }
+      } else {
+        const error = await response.json()
+        return { success: false, error: error.detail }
+      }
+    } catch (error) {
+      return { success: false, error: 'Network error' }
+    }
+  }
+
+  const updateRolePermissions = async (roleId: number, permissionIds: number[]) => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch(`http://localhost:8000/api/users/roles/${roleId}/permissions`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(permissionIds)
+      })
+      if (response.ok) {
+        await fetchRoles()
+        return { success: true }
+      } else {
+        const error = await response.json()
+        return { success: false, error: error.detail }
+      }
+    } catch (error) {
+      return { success: false, error: 'Network error' }
+    }
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoginError('')
@@ -510,6 +963,8 @@ const AdminApp: React.FC = () => {
       if (response.ok) {
         const data = await response.json()
         localStorage.setItem('admin_token', data.access_token)
+        localStorage.setItem('admin_user_data', JSON.stringify(data.user))
+        setCurrentUser(data.user)
         setIsAuthenticated(true)
         fetchDashboardData()
       } else {
@@ -557,6 +1012,8 @@ const AdminApp: React.FC = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('admin_token')
+    localStorage.removeItem('admin_user_data')
+    setCurrentUser(null)
     setIsAuthenticated(false)
     setCredentials({ username: '', password: '' })
   }
@@ -766,6 +1223,8 @@ const AdminApp: React.FC = () => {
         return renderTicketsTab()
       case 'reports':
         return renderReportsTab()
+      case 'users':
+        return renderUserManagementTab()
       default:
         return renderOverviewTab()
     }
@@ -3177,6 +3636,501 @@ const AdminApp: React.FC = () => {
     </div>
   )
 
+  // User Management Tab
+  const renderUserManagementTab = () => (
+    <div style={{ padding: '24px 16px' }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '24px' 
+      }}>
+        <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0' }}>
+          👥 User Management
+        </h2>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            onClick={async () => {
+              await fetchRoles()
+              setShowUserModal(true)
+            }}
+            style={{ 
+              backgroundColor: '#10b981', 
+              color: 'white', 
+              padding: '12px 24px', 
+              borderRadius: '8px', 
+              border: 'none', 
+              fontSize: '14px', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            ➕ Add User
+          </button>
+          <button
+            onClick={() => setShowRoleModal(true)}
+            style={{ 
+              backgroundColor: '#3b82f6', 
+              color: 'white', 
+              padding: '12px 24px', 
+              borderRadius: '8px', 
+              border: 'none', 
+              fontSize: '14px', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            🎭 Manage Roles
+          </button>
+        </div>
+      </div>
+
+      {/* Search and Filter */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '16px', 
+        marginBottom: '24px',
+        flexWrap: 'wrap'
+      }}>
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <input
+            type="text"
+            placeholder="Search users..."
+            value={userSearchTerm}
+            onChange={(e) => setUserSearchTerm(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              fontSize: '14px'
+            }}
+          />
+        </div>
+        <div style={{ minWidth: '150px' }}>
+          <select
+            value={userFilterRole}
+            onChange={(e) => setUserFilterRole(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              fontSize: '14px',
+              backgroundColor: 'white'
+            }}
+          >
+            <option value="All">All Roles</option>
+            {roles.map(role => (
+              <option key={role.id} value={role.name}>{role.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Users Table */}
+      <div style={{ 
+        backgroundColor: 'white', 
+        borderRadius: '12px', 
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        overflow: 'hidden'
+      }}>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: '1fr 1fr 1fr 1fr 120px 100px',
+          gap: '16px',
+          padding: '16px 24px',
+          backgroundColor: '#f9fafb',
+          borderBottom: '1px solid #e5e7eb',
+          fontWeight: '600',
+          fontSize: '14px',
+          color: '#374151'
+        }}>
+          <div>Name</div>
+          <div>Email</div>
+          <div>Role</div>
+          <div>Last Login</div>
+          <div>Status</div>
+          <div>Actions</div>
+        </div>
+        
+        {users
+          .filter(user => 
+            (userSearchTerm === '' || 
+             user.full_name.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+             user.email.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+             user.username.toLowerCase().includes(userSearchTerm.toLowerCase())) &&
+            (userFilterRole === 'All' || user.role_name === userFilterRole)
+          )
+          .map(user => (
+            <div key={user.id} style={{ 
+              display: 'grid', 
+              gridTemplateColumns: '1fr 1fr 1fr 1fr 120px 100px',
+              gap: '16px',
+              padding: '16px 24px',
+              borderBottom: '1px solid #f3f4f6',
+              alignItems: 'center',
+              fontSize: '14px'
+            }}>
+              <div>
+                <div style={{ fontWeight: '500', color: '#111827' }}>
+                  {user.full_name}
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                  @{user.username}
+                </div>
+              </div>
+              <div style={{ color: '#374151' }}>{user.email}</div>
+              <div>
+                <span style={{ 
+                  backgroundColor: '#dbeafe', 
+                  color: '#1e40af', 
+                  padding: '4px 8px', 
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: '500'
+                }}>
+                  {user.role_name || 'No Role'}
+                </span>
+              </div>
+              <div style={{ color: '#6b7280', fontSize: '12px' }}>
+                {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
+              </div>
+              <div>
+                <span style={{ 
+                  backgroundColor: user.is_active ? '#dcfce7' : '#fee2e2', 
+                  color: user.is_active ? '#166534' : '#dc2626', 
+                  padding: '4px 8px', 
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  fontWeight: '500'
+                }}>
+                  {user.is_active ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={async () => {
+                    await fetchRoles()
+                    setEditingUser(user)
+                    setNewUser({
+                      username: user.username,
+                      email: user.email,
+                      password: '',
+                      full_name: user.full_name,
+                      role_id: user.role_id
+                    })
+                    setShowUserModal(true)
+                  }}
+                  style={{ 
+                    backgroundColor: '#3b82f6', 
+                    color: 'white', 
+                    padding: '6px 12px', 
+                    borderRadius: '6px', 
+                    border: 'none', 
+                    fontSize: '12px', 
+                    cursor: 'pointer'
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={async () => {
+                    if (window.confirm('Are you sure you want to delete this user?')) {
+                      const result = await deleteUser(user.id)
+                      if (!result.success) {
+                        alert(`Error: ${result.error}`)
+                      }
+                    }
+                  }}
+                  style={{ 
+                    backgroundColor: '#dc2626', 
+                    color: 'white', 
+                    padding: '6px 12px', 
+                    borderRadius: '6px', 
+                    border: 'none', 
+                    fontSize: '12px', 
+                    cursor: 'pointer'
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+      </div>
+
+      {/* User Modal */}
+      {showUserModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '500px',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>
+              {editingUser ? 'Edit User' : 'Add New User'}
+            </h3>
+            
+            <form onSubmit={async (e) => {
+              e.preventDefault()
+              const result = editingUser 
+                ? await updateUser(editingUser.id, newUser)
+                : await createUser(newUser)
+              
+              if (result.success) {
+                setShowUserModal(false)
+                setEditingUser(null)
+                setNewUser({ username: '', email: '', password: '', full_name: '', role_id: 0 })
+              } else {
+                alert(result.error)
+              }
+            }}>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  value={newUser.full_name}
+                  onChange={(e) => setNewUser({...newUser, full_name: e.target.value})}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={newUser.username}
+                  onChange={(e) => setNewUser({...newUser, username: e.target.value})}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                  Password {editingUser && '(leave empty to keep current)'}
+                </label>
+                <input
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                  required={!editingUser}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px'
+                  }}
+                />
+              </div>
+              
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                  Role
+                </label>
+                <select
+                  value={newUser.role_id}
+                  onChange={(e) => setNewUser({...newUser, role_id: parseInt(e.target.value)})}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  <option value={0}>Select Role</option>
+                  {roles.map(role => (
+                    <option key={role.id} value={role.id}>{role.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUserModal(false)
+                    setEditingUser(null)
+                    setNewUser({ username: '', email: '', password: '', full_name: '', role_id: 0 })
+                  }}
+                  style={{
+                    padding: '12px 24px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    backgroundColor: 'white',
+                    color: '#374151',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '12px 24px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {editingUser ? 'Update User' : 'Create User'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Role Management Modal */}
+      {showRoleModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '800px',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>
+              Role & Permission Management
+            </h3>
+            
+            <div style={{ marginBottom: '24px' }}>
+              <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px' }}>
+                Available Roles
+              </h4>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {roles.map(role => (
+                  <div key={role.id} style={{
+                    padding: '16px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    backgroundColor: '#f9fafb'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: '600', fontSize: '14px' }}>{role.name}</div>
+                        <div style={{ fontSize: '12px', color: '#6b7280' }}>{role.description}</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setEditingRole(role)
+                          // Load role permissions
+                        }}
+                        style={{
+                          padding: '8px 16px',
+                          backgroundColor: '#3b82f6',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                      >
+                        Manage Permissions
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowRoleModal(false)}
+                style={{
+                  padding: '12px 24px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  backgroundColor: 'white',
+                  color: '#374151',
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
 
   if (isLoading) {
     return (
@@ -3563,6 +4517,45 @@ const AdminApp: React.FC = () => {
                 <span style={{ fontSize: '14px', color: '#6b7280' }}>Online</span>
               </div>
               
+              {/* User Role Info */}
+              {currentUser && (
+                <div 
+                  onClick={() => setShowProfileModal(true)}
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px',
+                    padding: '6px 12px',
+                    backgroundColor: '#f3f4f6',
+                    borderRadius: '20px',
+                    border: '1px solid #e5e7eb',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#e5e7eb'
+                    e.currentTarget.style.transform = 'scale(1.02)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f3f4f6'
+                    e.currentTarget.style.transform = 'scale(1)'
+                  }}
+                >
+                  <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                    {currentUser.full_name || currentUser.username}
+                  </span>
+                  <span style={{ 
+                    fontSize: '11px', 
+                    color: '#3b82f6',
+                    fontWeight: '500',
+                    textTransform: 'uppercase'
+                  }}>
+                    {currentUser.role_name || currentUser.user_type || 'User'}
+                  </span>
+                  <span style={{ fontSize: '10px', color: '#6b7280' }}>⚙️</span>
+                </div>
+              )}
+              
               {/* Notification Bell */}
               <div style={{ position: 'relative' }}>
                 <button
@@ -3628,20 +4621,45 @@ const AdminApp: React.FC = () => {
                       alignItems: 'center'
                     }}>
                       <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>Notifications</h3>
-                      <button
-                        onClick={() => setShowNotifications(false)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          cursor: 'pointer',
-                          padding: '4px'
-                        }}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="18" y1="6" x2="6" y2="18"/>
-                          <line x1="6" y1="6" x2="18" y2="18"/>
-                        </svg>
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {notifications.length > 0 && (
+                          <button
+                            onClick={clearAllNotifications}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              color: '#dc2626',
+                              fontWeight: '500'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#fef2f2'
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent'
+                            }}
+                          >
+                            Clear All
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setShowNotifications(false)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '4px'
+                          }}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                     
                     <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
@@ -3700,16 +4718,48 @@ const AdminApp: React.FC = () => {
                                   {new Date(notification.created_at).toLocaleString()}
                                 </div>
                               </div>
-                              {notification.is_read === 0 && (
-                                <div style={{
-                                  width: '8px',
-                                  height: '8px',
-                                  backgroundColor: '#3b82f6',
-                                  borderRadius: '50%',
-                                  marginLeft: '8px',
-                                  marginTop: '4px'
-                                }}></div>
-                              )}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {notification.is_read === 0 && (
+                                  <div style={{
+                                    width: '8px',
+                                    height: '8px',
+                                    backgroundColor: '#3b82f6',
+                                    borderRadius: '50%',
+                                    marginTop: '4px'
+                                  }}></div>
+                                )}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    deleteNotification(notification.id)
+                                  }}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    padding: '4px',
+                                    borderRadius: '4px',
+                                    color: '#dc2626',
+                                    opacity: '0.7',
+                                    transition: 'all 0.2s'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = '#fef2f2'
+                                    e.currentTarget.style.opacity = '1'
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent'
+                                    e.currentTarget.style.opacity = '0.7'
+                                  }}
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <polyline points="3,6 5,6 21,6"/>
+                                    <path d="M19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"/>
+                                    <line x1="10" y1="11" x2="10" y2="17"/>
+                                    <line x1="14" y1="11" x2="14" y2="17"/>
+                                  </svg>
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ))
@@ -3762,8 +4812,9 @@ const AdminApp: React.FC = () => {
               { id: 'analytics', label: '📈 Analytics', icon: '📈' },
               { id: 'faq', label: '📄 FAQ Management', icon: '📄' },
               { id: 'tickets', label: '🎫 Tickets', icon: '🎫' },
-              { id: 'reports', label: '📋 Reports', icon: '📋' }
-            ].map((tab) => (
+              { id: 'reports', label: '📋 Reports', icon: '📋' },
+              { id: 'users', label: '👥 User Management', icon: '👥' }
+            ].filter(tab => hasAccess(tab.id)).map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -4078,6 +5129,19 @@ const AdminApp: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Profile Modal */}
+      {currentUser && (
+        <ProfileModal
+          user={currentUser}
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          onUpdate={(updatedUser) => {
+            setCurrentUser(updatedUser)
+            localStorage.setItem('admin_user_data', JSON.stringify(updatedUser))
+          }}
+        />
       )}
     </div>
   )
