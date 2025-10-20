@@ -167,8 +167,10 @@ const AdminApp: React.FC = () => {
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [showUserModal, setShowUserModal] = useState(false)
   const [showRoleModal, setShowRoleModal] = useState(false)
+  const [showPermissionModal, setShowPermissionModal] = useState(false)
+  const [editingRole, setEditingRole] = useState(null)
+  const [rolePermissions, setRolePermissions] = useState({})
   const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [editingRole, setEditingRole] = useState<Role | null>(null)
   const [newUser, setNewUser] = useState({
     username: '',
     email: '',
@@ -944,6 +946,33 @@ const AdminApp: React.FC = () => {
     } catch (error) {
       return { success: false, error: 'Network error' }
     }
+  }
+
+  const handleManagePermissions = async (role: any) => {
+    setEditingRole(role)
+    
+    // Load current role permissions
+    try {
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch(`http://localhost:8000/api/users/roles/${role.id}/permissions`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        const permissionsMap = {}
+        data.forEach(permission => {
+          permissionsMap[permission.id] = true
+        })
+        setRolePermissions(permissionsMap)
+      }
+    } catch (error) {
+      console.error('Error loading role permissions:', error)
+    }
+    
+    setShowPermissionModal(true)
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -4088,10 +4117,7 @@ const AdminApp: React.FC = () => {
                         <div style={{ fontSize: '12px', color: '#6b7280' }}>{role.description}</div>
                       </div>
                       <button
-                        onClick={() => {
-                          setEditingRole(role)
-                          // Load role permissions
-                        }}
+                        onClick={() => handleManagePermissions(role)}
                         style={{
                           padding: '8px 16px',
                           backgroundColor: '#3b82f6',
@@ -4123,6 +4149,208 @@ const AdminApp: React.FC = () => {
                 }}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permission Management Modal */}
+      {showPermissionModal && editingRole && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '600px',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>
+              Manage Permissions - {editingRole.name}
+            </h3>
+            
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#f0f9ff',
+              border: '1px solid #0ea5e9',
+              borderRadius: '8px',
+              marginBottom: '20px'
+            }}>
+              <div style={{ fontSize: '14px', fontWeight: '500', color: '#0c4a6e', marginBottom: '4px' }}>
+                Role Description
+              </div>
+              <div style={{ fontSize: '12px', color: '#0c4a6e' }}>
+                {editingRole.description}
+              </div>
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }}>
+                Select the permissions for the <strong>{editingRole.name}</strong> role:
+              </p>
+              
+              {/* Permission Categories */}
+              <div style={{ marginBottom: '16px' }}>
+                <button
+                  onClick={() => {
+                    const allPermissionIds = permissions.map(p => p.id)
+                    const allChecked = allPermissionIds.every(id => rolePermissions[id])
+                    const newPermissions = {}
+                    allPermissionIds.forEach(id => {
+                      newPermissions[id] = !allChecked
+                    })
+                    setRolePermissions(newPermissions)
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    backgroundColor: 'white',
+                    color: '#374151',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    marginRight: '8px'
+                  }}
+                >
+                  {permissions.every(p => rolePermissions[p.id]) ? 'Unselect All' : 'Select All'}
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const modulePermissions = {}
+                    permissions.forEach(permission => {
+                      modulePermissions[permission.id] = false
+                    })
+                    setRolePermissions(modulePermissions)
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    backgroundColor: 'white',
+                    color: '#374151',
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}
+                >
+                  Clear All
+                </button>
+              </div>
+              
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {permissions.map((permission) => (
+                  <div key={permission.id} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '12px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    backgroundColor: '#f9fafb'
+                  }}>
+                    <input
+                      type="checkbox"
+                      id={`permission-${permission.id}`}
+                      checked={rolePermissions[permission.id] || false}
+                      onChange={(e) => {
+                        setRolePermissions(prev => ({
+                          ...prev,
+                          [permission.id]: e.target.checked
+                        }))
+                      }}
+                      style={{ marginRight: '12px' }}
+                    />
+                    <label htmlFor={`permission-${permission.id}`} style={{
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      flex: 1
+                    }}>
+                      {permission.name}
+                    </label>
+                    <span style={{
+                      fontSize: '12px',
+                      color: '#6b7280',
+                      backgroundColor: '#e5e7eb',
+                      padding: '4px 8px',
+                      borderRadius: '4px'
+                    }}>
+                      {permission.module}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Summary */}
+              <div style={{
+                marginTop: '16px',
+                padding: '12px',
+                backgroundColor: '#f0f9ff',
+                border: '1px solid #0ea5e9',
+                borderRadius: '8px'
+              }}>
+                <div style={{ fontSize: '14px', fontWeight: '500', color: '#0c4a6e', marginBottom: '4px' }}>
+                  Permission Summary
+                </div>
+                <div style={{ fontSize: '12px', color: '#0c4a6e' }}>
+                  {Object.values(rolePermissions).filter(Boolean).length} of {permissions.length} permissions selected
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowPermissionModal(false)
+                  setEditingRole(null)
+                  setRolePermissions({})
+                }}
+                style={{
+                  padding: '12px 24px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  backgroundColor: 'white',
+                  color: '#374151',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const selectedPermissions = Object.keys(rolePermissions)
+                    .filter(key => rolePermissions[key])
+                    .map(key => parseInt(key))
+                  
+                  const result = await updateRolePermissions(editingRole.id, selectedPermissions)
+                  if (result.success) {
+                    setShowPermissionModal(false)
+                    setEditingRole(null)
+                    setRolePermissions({})
+                  }
+                }}
+                style={{
+                  padding: '12px 24px',
+                  border: 'none',
+                  borderRadius: '8px',
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                Save Permissions
               </button>
             </div>
           </div>

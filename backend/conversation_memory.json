@@ -1,83 +1,56 @@
 {
   "sessions": {
-    "session_default": {
-      "user_id": "default",
-      "created_at": "2025-10-17T17:40:14.259285",
-      "last_activity": "2025-10-20T00:50:02.801865",
+    "session_anonymous_user": {
+      "user_id": "anonymous_user",
+      "created_at": "2025-10-21T00:20:39.792180",
+      "last_activity": "2025-10-21T01:00:43.752884",
       "conversation": [
         {
-          "timestamp": "2025-10-18T11:26:54.209736",
+          "timestamp": "2025-10-21T00:20:39.792180",
+          "query": "hi",
+          "response": "Hello! Welcome to Venturing Digitally!\n\nI'm your AI assistant here to help you discover our cutting-edge digital solutions. How can I assist you today?",
+          "intent": "greeting"
+        },
+        {
+          "timestamp": "2025-10-21T00:41:50.490315",
           "query": "Hi",
           "response": "Greetings! Welcome to Venturing Digitally!\n\nI'm excited to help you explore our comprehensive digital services. How may I assist you today?",
           "intent": "greeting"
         },
         {
-          "timestamp": "2025-10-18T11:50:57.963041",
-          "query": "hii",
-          "response": "Greetings! Welcome to Venturing Digitally!\n\nI'm excited to help you explore our comprehensive digital services. How may I assist you today?",
-          "intent": "general"
-        },
-        {
-          "timestamp": "2025-10-18T11:51:03.578875",
-          "query": "Hello",
-          "response": "Hi there! Welcome to Venturing Digitally - your partner in digital transformation.\n\nI'm here to guide you through our innovative services and solutions. What would you like to know?",
-          "intent": "greeting"
-        },
-        {
-          "timestamp": "2025-10-18T14:51:45.565623",
-          "query": "Hii",
-          "response": "Greetings! Welcome to Venturing Digitally!\n\nI'm excited to help you explore our comprehensive digital services. How may I assist you today?",
-          "intent": "general"
-        },
-        {
-          "timestamp": "2025-10-18T17:00:49.886278",
-          "query": "Hii",
-          "response": "Hi there! Welcome to Venturing Digitally - your partner in digital transformation.\n\nI'm here to guide you through our innovative services and solutions. What would you like to know?",
-          "intent": "general"
-        },
-        {
-          "timestamp": "2025-10-20T00:13:03.462603",
-          "query": "hii",
-          "response": "Greetings! Welcome to Venturing Digitally!\n\nI'm excited to help you explore our comprehensive digital services. How may I assist you today?",
-          "intent": "general"
-        },
-        {
-          "timestamp": "2025-10-20T00:37:04.953709",
+          "timestamp": "2025-10-21T00:47:14.894766",
           "query": "hi",
           "response": "Hello! Welcome to Venturing Digitally!\n\nI'm your AI assistant here to help you discover our cutting-edge digital solutions. How can I assist you today?",
           "intent": "greeting"
         },
         {
-          "timestamp": "2025-10-20T00:38:17.921759",
+          "timestamp": "2025-10-21T00:51:15.044581",
           "query": "hi",
-          "response": "Hi there! Welcome to Venturing Digitally - your partner in digital transformation.\n\nI'm here to guide you through our innovative services and solutions. What would you like to know?",
+          "response": "Hello! Welcome to Venturing Digitally!\n\nI'm your AI assistant here to help you discover our cutting-edge digital solutions. How can I assist you today?",
           "intent": "greeting"
         },
         {
-          "timestamp": "2025-10-20T00:39:53.152609",
+          "timestamp": "2025-10-21T00:52:38.714256",
           "query": "hii",
-          "response": "Hi there! Welcome to Venturing Digitally - your partner in digital transformation.\n\nI'm here to guide you through our innovative services and solutions. What would you like to know?",
+          "response": "Hello! Welcome to Venturing Digitally!\n\nI'm your AI assistant here to help you discover our cutting-edge digital solutions. How can I assist you today?",
           "intent": "general"
         },
         {
-          "timestamp": "2025-10-20T00:50:02.801865",
-          "query": "hi",
-          "response": "Hello! Welcome to Venturing Digitally!\n\nI'm your AI assistant here to help you discover our cutting-edge digital solutions. How can I assist you today?",
+          "timestamp": "2025-10-21T00:54:05.081174",
+          "query": "hello",
+          "response": "Greetings! Welcome to Venturing Digitally!\n\nI'm excited to help you explore our comprehensive digital services. How may I assist you today?",
           "intent": "greeting"
-        }
-      ],
-      "user_preferences": {},
-      "context": {}
-    },
-    "session_test": {
-      "user_id": "test",
-      "created_at": "2025-10-20T00:34:49.216350",
-      "last_activity": "2025-10-20T00:34:49.216350",
-      "conversation": [
+        },
         {
-          "timestamp": "2025-10-20T00:34:49.216350",
+          "timestamp": "2025-10-21T00:59:28.828091",
           "query": "hi",
-          "response": "Hello! Welcome to Venturing Digitally!\n\nI'm your AI assistant here to help you discover our cutting-edge digital solutions. How can I assist you today?",
+          "response": "Greetings! Welcome to Venturing Digitally!\n\nI'm excited to help you explore our comprehensive digital services. How may I assist you today?",
+          "intent": "greeting"
+        },
+        {
+          "timestamp": "2025-10-21T01:00:43.752884",
+          "query": "hi",
+          "response": "Hi there! Welcome to Venturing Digitally - your partner in digital transformation.\n\nI'm here to guide you through our innovative services and solutions. What would you like to know?",
           "intent": "greeting"
         }
       ],
@@ -85,5 +58,5 @@
       "context": {}
     }
   },
-  "last_updated": "2025-10-20T00:50:02.801928"
+  "last_updated": "2025-10-21T01:00:43.752957"
 }

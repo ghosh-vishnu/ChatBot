@@ -15,7 +15,7 @@
     "answer": "We offer flexible pricing models including hourly rates, fixed-price projects, and retainer packages. Contact us for a customized quote based on your specific requirements.",
     "category": "Pricing",
     "customCategory": "",
-    "views": 10,
+    "views": 11,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:02:12.477038"
   },
@@ -25,7 +25,7 @@
     "answer": "Yes, we provide internship opportunities for students in multiple technical domains.",
     "category": "Custom",
     "customCategory": "Internship & Training",
-    "views": 3,
+    "views": 8,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:09.522077"
   },
@@ -195,7 +195,7 @@
     "answer": "We use technologies like HTML5, CSS3, JavaScript, React, Angular, PHP, Python, and more.",
     "category": "Custom",
     "customCategory": "Web Development",
-    "views": 0,
+    "views": 4,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:10.902055"
   },
@@ -375,7 +375,7 @@
     "answer": "Yes, we analyze and visualize data with advanced tools.",
     "category": "Custom",
     "customCategory": "AI/ML and Data Analytics",
-    "views": 0,
+    "views": 2,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:13.767902"
   },
@@ -565,7 +565,7 @@
     "answer": "We are based in India, with offices in Jamshedpur, Bhopal, Bangalore, and Kolkata.",
     "category": "Custom",
     "customCategory": "Company Information",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:16.749559"
   },
@@ -605,7 +605,7 @@
     "answer": "We have been serving clients for several years with innovative software solutions.",
     "category": "Custom",
     "customCategory": "Company Information",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:17.312091"
   },
@@ -615,7 +615,7 @@
     "answer": "We serve industries like education, healthcare, retail, manufacturing, finance, and more.",
     "category": "Custom",
     "customCategory": "Company Information",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:17.429158"
   },
@@ -625,7 +625,7 @@
     "answer": "We provide web development, mobile app development, custom software, AI/ML, DevOps, and analytics services.",
     "category": "Custom",
     "customCategory": "Services Overview",
-    "views": 20,
+    "views": 24,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:17.745111"
   },
@@ -745,7 +745,7 @@
     "answer": "Yes, we provide hospital solutions.",
     "category": "Custom",
     "customCategory": "Software Products & Solutions",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:20.261443"
   },
@@ -795,7 +795,7 @@
     "answer": "You can contact us, and we'll schedule a consultation.",
     "category": "Custom",
     "customCategory": "Pricing & Support",
-    "views": 0,
+    "views": 2,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:21.009013"
   },
@@ -845,7 +845,7 @@
     "answer": "Yes, we offer ongoing support and maintenance.",
     "category": "Custom",
     "customCategory": "Pricing & Support",
-    "views": 11,
+    "views": 14,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:21.474293"
   },
