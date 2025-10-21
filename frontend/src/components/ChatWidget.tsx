@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
+import ChatNowModal from './ChatNowModal'
+import LiveChatWindow from './LiveChatWindow'
 
 type Suggestion = {
   text: string
@@ -80,6 +82,14 @@ const ChatWidget: React.FC = () => {
     query: ''
   })
   const [ticketLoading, setTicketLoading] = useState(false)
+  const [showChatNowModal, setShowChatNowModal] = useState(false)
+  const [liveChatSession, setLiveChatSession] = useState<{
+    sessionId: number;
+    userId: string;
+    supportUserId: number;
+  } | null>(null)
+  const [wsConnection, setWsConnection] = useState<WebSocket | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const popupTimeoutRef = useRef<number | null>(null)
@@ -214,6 +224,52 @@ const ChatWidget: React.FC = () => {
     }
   }, [])
 
+  // WebSocket connection for live chat
+  useEffect(() => {
+    if (currentUserId && !wsConnection) {
+      const ws = new WebSocket(`ws://localhost:8000/chat/ws/${currentUserId}`)
+      
+      ws.onopen = () => {
+        console.log('User WebSocket connected for live chat with ID:', currentUserId)
+        setWsConnection(ws)
+        console.log('User WebSocket connection established successfully')
+      }
+      
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data)
+        
+        if (message.type === 'chat_accepted') {
+          setLiveChatSession({
+            sessionId: message.data.session_id,
+            userId: currentUserId,
+            supportUserId: message.data.support_user_id || 1
+          })
+          setShowChatNowModal(false)
+        } else if (message.type === 'chat_rejected') {
+          alert(message.data.message)
+          setShowChatNowModal(false)
+        }
+      }
+      
+      ws.onclose = () => {
+        console.log('WebSocket disconnected')
+        setWsConnection(null)
+      }
+      
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error)
+        setWsConnection(null)
+      }
+    }
+    
+    return () => {
+      if (wsConnection) {
+        wsConnection.close()
+        setWsConnection(null)
+      }
+    }
+  }, [currentUserId, wsConnection])
+
   const scrollToBottom = () => {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight
@@ -330,6 +386,9 @@ const ChatWidget: React.FC = () => {
     if (suggestion.action === 'create_ticket') {
       // Handle ticket creation
       startTicketProcess()
+    } else if (suggestion.action === 'start_live_chat') {
+      // Handle live chat
+      setShowChatNowModal(true)
     } else if (suggestion.action === 'contact') {
       // Handle contact action
       setShowPopup(true)
@@ -626,7 +685,7 @@ const ChatWidget: React.FC = () => {
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
-      {!open && (
+      {!open && !liveChatSession && (
         <div className="relative">
           <div className={`absolute inset-0 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 opacity-75 ${
             isAnimating ? 'animate-ping' : ''
@@ -672,7 +731,7 @@ const ChatWidget: React.FC = () => {
         </div>
       )}
 
-      {open && (
+      {open && !liveChatSession && (
         <div className="w-96 h-[600px] advanced-chat-window flex flex-col overflow-hidden animate-slideUp">
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -924,6 +983,32 @@ const ChatWidget: React.FC = () => {
         </div>
       )}
 
+      {/* Live Chat Components */}
+      <ChatNowModal
+        isOpen={showChatNowModal}
+        onClose={() => setShowChatNowModal(false)}
+        onChatStarted={(sessionId: number, userId: string, supportUserId?: number) => {
+          setLiveChatSession({
+            sessionId,
+            userId,
+            supportUserId: supportUserId || 1 // Use provided supportUserId or default to 1
+          })
+          setShowChatNowModal(false)
+        }}
+        onRequestCreated={(userId: string) => {
+          setCurrentUserId(userId)
+        }}
+      />
+
+      {liveChatSession && (
+        <LiveChatWindow
+          sessionId={liveChatSession.sessionId}
+          userId={liveChatSession.userId}
+          supportUserId={liveChatSession.supportUserId}
+          onEndChat={() => setLiveChatSession(null)}
+          wsConnection={wsConnection}
+        />
+      )}
 
     </div>
   )

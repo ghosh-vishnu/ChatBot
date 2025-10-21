@@ -5,7 +5,7 @@
     "answer": "Thik hu tum kaise ho",
     "category": "Custom",
     "customCategory": "Emotion",
-    "views": 10,
+    "views": 11,
     "success_rate": 85,
     "last_updated": "2025-10-14T14:17:20.968255"
   },
@@ -15,7 +15,7 @@
     "answer": "We offer flexible pricing models including hourly rates, fixed-price projects, and retainer packages. Contact us for a customized quote based on your specific requirements.",
     "category": "Pricing",
     "customCategory": "",
-    "views": 11,
+    "views": 15,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:02:12.477038"
   },
@@ -25,7 +25,7 @@
     "answer": "Yes, we provide internship opportunities for students in multiple technical domains.",
     "category": "Custom",
     "customCategory": "Internship & Training",
-    "views": 8,
+    "views": 9,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:09.522077"
   },
@@ -45,7 +45,7 @@
     "answer": "You can apply through our website or contact our HR team for the latest openings.",
     "category": "Custom",
     "customCategory": "Internship & Training",
-    "views": 0,
+    "views": 8,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:09.756349"
   },
@@ -115,7 +115,7 @@
     "answer": "Yes, we share profiles with hiring partners and help with resume building and interview preparation.",
     "category": "Custom",
     "customCategory": "Internship & Training",
-    "views": 2,
+    "views": 4,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:10.311434"
   },
@@ -625,7 +625,7 @@
     "answer": "We provide web development, mobile app development, custom software, AI/ML, DevOps, and analytics services.",
     "category": "Custom",
     "customCategory": "Services Overview",
-    "views": 24,
+    "views": 28,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:17.745111"
   },
@@ -725,7 +725,7 @@
     "answer": "Yes, we offer LMS platforms.",
     "category": "Custom",
     "customCategory": "Software Products & Solutions",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:19.663605"
   },
@@ -765,7 +765,7 @@
     "answer": "Yes, we provide inventory tracking solutions.",
     "category": "Custom",
     "customCategory": "Software Products & Solutions",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:20.443250"
   },
@@ -835,7 +835,7 @@
     "answer": "We provide both hourly and fixed-price models.",
     "category": "Custom",
     "customCategory": "Pricing & Support",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:21.359037"
   },
@@ -845,7 +845,7 @@
     "answer": "Yes, we offer ongoing support and maintenance.",
     "category": "Custom",
     "customCategory": "Pricing & Support",
-    "views": 14,
+    "views": 15,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:21.474293"
   },
@@ -875,7 +875,7 @@
     "answer": "Yes, we fix bugs promptly.",
     "category": "Custom",
     "customCategory": "Pricing & Support",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:21.755984"
   },
@@ -915,7 +915,7 @@
     "answer": "Yes",
     "category": "Emotion",
     "customCategory": "",
-    "views": 0,
+    "views": 2,
     "success_rate": 85,
     "last_updated": "2025-10-18T13:53:03.857663"
   },

@@ -10,6 +10,7 @@ from admin_dashboard_db import router as admin_router
 from auth_router import router as auth_router
 from ticket_api import router as ticket_router
 from user_management_api import router as user_management_router
+from live_chat_api import router as live_chat_router
 from sqlite_auth import db_auth
 from analytics_stream import analytics_stream, get_current_analytics
 from notification_stream import create_notification_routes
@@ -36,6 +37,7 @@ app.include_router(chat_router)
 app.include_router(admin_router)
 app.include_router(ticket_router)
 app.include_router(user_management_router, prefix="/api/users", tags=["User Management"])
+app.include_router(live_chat_router, tags=["Live Chat"])
 
 # Add notification routes
 create_notification_routes(app)

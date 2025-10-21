@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Session - Venturing Digital</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-color: #f9fafb;
+        }
+        
+        #root {
+            height: 100vh;
+        }
+        
+        .chat-container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: #f9fafb;
+        }
+        
+        .header {
+            background-color: #3b82f6;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header h2 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .header p {
+            margin: 5px 0 0 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .end-chat-btn {
+            background-color: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .end-chat-btn:hover {
+            background-color: #dc2626;
+        }
+        
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #f9fafb;
+        }
+        
+        .message {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        
+        .message.user {
+            justify-content: flex-start;
+        }
+        
+        .message.support {
+            justify-content: flex-end;
+        }
+        
+        .message-bubble {
+            padding: 12px 16px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-break: break-word;
+            font-size: 14px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        
+        .message.user .message-bubble {
+            background-color: #e5e7eb;
+            color: #333;
+        }
+        
+        .message.support .message-bubble {
+            background-color: #3b82f6;
+            color: white;
+        }
+        
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+        
+        .message.user .message-time {
+            text-align: left;
+        }
+        
+        .message.support .message-time {
+            text-align: right;
+        }
+        
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid #e5e7eb;
+            background-color: white;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 20px;
+            font-size: 14px;
+            outline: none;
+            background-color: #f9fafb;
+        }
+        
+        .send-btn {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .send-btn:hover {
+            background-color: #2563eb;
+        }
+        
+        .send-btn:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #6b7280;
+            font-size: 16px;
+            margin-top: 50px;
+        }
+        
+        .error {
+            color: #ef4444;
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #fee2e2;
+            border-radius: 6px;
+            border: 1px solid #fecaca;
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <div class="chat-container">
+            <div class="header">
+                <div>
+                    <h2>Live Chat Session</h2>
+                    <p>Connecting to chat...</p>
+                </div>
+                <button class="end-chat-btn" onclick="endChat()">End Chat</button>
+            </div>
+            
+            <div class="messages-area" id="messagesArea">
+                <div class="loading">Loading chat session...</div>
+            </div>
+            
+            <div class="input-area">
+                <input 
+                    type="text" 
+                    class="message-input" 
+                    id="messageInput"
+                    placeholder="Type your message..."
+                    disabled
+                />
+                <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled>
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let sessionId = null;
+        let userId = null;
+        let supportUserId = null;
+        let isConnected = false;
+
+        // Extract parameters from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        sessionId = urlParams.get('sessionId');
+        userId = urlParams.get('userId');
+        supportUserId = urlParams.get('supportUserId');
+
+        if (!sessionId || !userId || !supportUserId) {
+            showError('Invalid chat session parameters');
+        } else {
+            initializeChat();
+        }
+
+        function initializeChat() {
+            // Update header
+            document.querySelector('.header h2').textContent = `Live Chat Session #${sessionId}`;
+            document.querySelector('.header p').textContent = `User: ${userId}`;
+
+            // Connect to WebSocket
+            socket = new WebSocket(`ws://localhost:8000/chat/ws/${userId}`);
+
+            socket.onopen = function() {
+                console.log('WebSocket connected');
+                isConnected = true;
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+                document.querySelector('.messages-area').innerHTML = '<div class="loading">No messages yet. Start the conversation!</div>';
+            };
+
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                if (data.type === 'message') {
+                    addMessage(data.content, data.sender_type, data.timestamp);
+                } else if (data.type === 'chat_accepted') {
+                    addSystemMessage('Chat request accepted! You can now start chatting.');
+                }
+            };
+
+            socket.onclose = function() {
+                console.log('WebSocket disconnected');
+                isConnected = false;
+                document.getElementById('messageInput').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+            };
+
+            socket.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                showError('Chat connection error. Please try again.');
+            };
+
+            // Load previous messages
+            loadMessages();
+        }
+
+        function loadMessages() {
+            fetch(`http://localhost:8000/chat/sessions/${sessionId}/messages`)
+                .then(response => response.json())
+                .then(data => {
+                    const messagesArea = document.getElementById('messagesArea');
+                    if (data.messages && data.messages.length > 0) {
+                        messagesArea.innerHTML = '';
+                        data.messages.forEach(msg => {
+                            addMessage(msg.message, msg.sender_type, msg.created_at);
+                        });
+                    } else {
+                        messagesArea.innerHTML = '<div class="loading">No messages yet. Start the conversation!</div>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading messages:', error);
+                });
+        }
+
+        function addMessage(content, senderType, timestamp) {
+            const messagesArea = document.getElementById('messagesArea');
+            const loadingDiv = messagesArea.querySelector('.loading');
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${senderType}`;
+            
+            const time = new Date(timestamp).toLocaleTimeString();
+            
+            messageDiv.innerHTML = `
+                <div class="message-bubble">
+                    ${content}
+                    <div class="message-time">${time}</div>
+                </div>
+            `;
+            
+            messagesArea.appendChild(messageDiv);
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+
+        function addSystemMessage(content) {
+            const messagesArea = document.getElementById('messagesArea');
+            const loadingDiv = messagesArea.querySelector('.loading');
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.style.textAlign = 'center';
+            messageDiv.style.color = '#6b7280';
+            messageDiv.style.fontSize = '14px';
+            messageDiv.style.marginBottom = '15px';
+            messageDiv.textContent = content;
+            
+            messagesArea.appendChild(messageDiv);
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (message && socket && isConnected) {
+                const messageData = {
+                    type: 'chat_message',
+                    session_id: parseInt(sessionId),
+                    content: message,
+                    sender_type: 'support',
+                    sender_id: supportUserId
+                };
+                
+                socket.send(JSON.stringify(messageData));
+                input.value = '';
+            }
+        }
+
+        function endChat() {
+            if (confirm('Are you sure you want to end this chat?')) {
+                if (socket) {
+                    socket.send(JSON.stringify({
+                        type: 'end_chat',
+                        session_id: parseInt(sessionId),
+                        sender_id: supportUserId
+                    }));
+                }
+                window.location.href = '/admin.html';
+            }
+        }
+
+        function showError(message) {
+            const messagesArea = document.getElementById('messagesArea');
+            messagesArea.innerHTML = `
+                <div class="error">${message}</div>
+                <div style="text-align: center; margin-top: 20px;">
+                    <button onclick="window.location.href='/admin.html'" 
+                            style="background-color: #3b82f6; color: white; border: none; border-radius: 8px; padding: 12px 24px; cursor: pointer;">
+                        Back to Admin Dashboard
+                    </button>
+                </div>
+            `;
+        }
+
+        // Handle Enter key
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>

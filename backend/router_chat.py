@@ -112,6 +112,30 @@ def _generate_unknown_question_response(query: str, analysis: dict) -> str:
 
 Would you like me to help you with any of these options?"""
 
+@router.get("/faq-suggestions")
+async def get_faq_suggestions(limit: int = 6):
+    """Get FAQ suggestions for the chat widget"""
+    try:
+        faqs = load_faqs()
+        
+        # Get random FAQs up to the limit
+        import random
+        suggestions = []
+        
+        if faqs:
+            # Shuffle and take up to limit
+            random.shuffle(faqs)
+            for faq in faqs[:limit]:
+                suggestions.append({
+                    "text": faq.get("question", ""),
+                    "id": faq.get("id", 0)
+                })
+        
+        return {"suggestions": suggestions}
+    except Exception as e:
+        print(f"Error getting FAQ suggestions: {e}")
+        return {"suggestions": []}
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):
     """Main chat endpoint"""
@@ -183,15 +207,24 @@ async def chat(req: ChatRequest):
             )
         else:
             print(f"No FAQ match found for: '{req.query}'")
-            # If no FAQ match, offer ticket creation immediately
+            # If no FAQ match, offer both ticket creation and live chat
             return ChatResponse(
                 answer=f"""I couldn't find specific information about "{req.query}" in my knowledge base.
 
-I'd be happy to help you by creating a support ticket so our team can provide detailed assistance.
+I can help you in two ways:
 
-Would you like me to help you create a support ticket?""",
+1. **Create a Support Ticket** - Our team will respond within 24 hours
+2. **Chat Now** - Get immediate help from our support team (if available)
+
+Which option would you prefer?""",
                 sources=["Support System"],
                 suggestions=[
+                    {
+                        "text": "Chat Now",
+                        "type": "action",
+                        "category": "live_chat",
+                        "action": "start_live_chat"
+                    },
                     {
                         "text": "Create Support Ticket",
                         "type": "action",
@@ -203,12 +236,6 @@ Would you like me to help you create a support ticket?""",
                         "type": "action", 
                         "category": "contact",
                         "action": "contact"
-                    },
-                    {
-                        "text": "View Our Services",
-                        "type": "action",
-                        "category": "services",
-                        "action": "services"
                     }
                 ]
             )

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import ProfileModal from '../components/ProfileModal'
+import LiveChatQueue from '../components/LiveChatQueue'
 
 // Extend Window interface for analytics EventSource
 declare global {
@@ -206,6 +207,7 @@ const AdminApp: React.FC = () => {
         return ['Super Admin', 'Manager', 'admin'].includes(userRole)
       case 'faq':
       case 'tickets':
+      case 'livechat':
         // Super Admin, Support can access
         return ['Super Admin', 'Support', 'admin'].includes(userRole)
       default:
@@ -1250,6 +1252,8 @@ const AdminApp: React.FC = () => {
         return renderFAQManagementTab()
       case 'tickets':
         return renderTicketsTab()
+      case 'livechat':
+        return renderLiveChatTab()
       case 'reports':
         return renderReportsTab()
       case 'users':
@@ -2898,6 +2902,9 @@ const AdminApp: React.FC = () => {
     </div>
   )
 
+  const renderLiveChatTab = () => (
+    <LiveChatQueue />
+  )
 
   const renderReportsTab = () => (
     <div style={{ padding: '24px 16px' }}>
@@ -5040,6 +5047,7 @@ const AdminApp: React.FC = () => {
               { id: 'analytics', label: '📈 Analytics', icon: '📈' },
               { id: 'faq', label: '📄 FAQ Management', icon: '📄' },
               { id: 'tickets', label: '🎫 Tickets', icon: '🎫' },
+              { id: 'livechat', label: '💬 Live Chat', icon: '💬' },
               { id: 'reports', label: '📋 Reports', icon: '📋' },
               { id: 'users', label: '👥 User Management', icon: '👥' }
             ].filter(tab => hasAccess(tab.id)).map((tab) => (
