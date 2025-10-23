@@ -29,8 +29,90 @@ const LiveChatQueue: React.FC = () => {
   const [wsConnection, setWsConnection] = useState<WebSocket | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [adminId, setAdminId] = useState<string>('1');
+  const [adminId, setAdminId] = useState<string | null>(null);
+  const [feedbackStats, setFeedbackStats] = useState<any>(null);
+  const [showFeedbackStats, setShowFeedbackStats] = useState(false);
+  const [totalSessions, setTotalSessions] = useState(0);
+  const [allSessions, setAllSessions] = useState<any[]>([]);
+  const [rejectedRequests, setRejectedRequests] = useState<any[]>([]);
+  const [showRejectedRequests, setShowRejectedRequests] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Helper: get admin token from localStorage (completely dynamic)
+  const getAdminToken = () => {
+    // Check all possible token keys dynamically
+    // This supports any number of support users without hardcoding
+    const possibleKeys = [
+      'anand_token', 'ravi_token', 'vishnu_token', 'deepak_token', 'support_token',
+      'admin_token', 'token', 'user_token', 'auth_token'
+    ];
+    
+    for (const key of possibleKeys) {
+      const token = localStorage.getItem(key);
+      if (token) {
+        return token;
+      }
+    }
+    
+    return '';
+  };
+
+  // Helper: establish admin WebSocket connection (id is resolved via /auth/verify)
+  const connectAdminWebSocket = () => {
+    if (wsConnection) {
+      return; // already connected
+    }
+    const token = getAdminToken();
+    if (!token) {
+      return;
+    }
+
+    fetch('http://localhost:8000/auth/verify', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (!data?.valid && !data?.success) {
+          return;
+        }
+        const extractedAdminId = data.user.id || data.user.user_id;
+        setAdminId(extractedAdminId);
+
+        const ws = new WebSocket(`ws://localhost:8000/chat/ws/support/${extractedAdminId}`);
+        
+        ws.onopen = () => {
+          setWsConnection(ws);
+        };
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.type === 'chat_message') {
+            setMessages(prev => [...prev, {
+              id: Date.now(),
+              sender_type: data.sender_type,
+              sender_id: data.sender_id,
+              message: data.message,
+              message_type: data.message_type || 'text',
+              is_read: false,
+              created_at: new Date().toISOString()
+            }]);
+          }
+        };
+        ws.onclose = () => {
+          setWsConnection(null);
+        };
+        ws.onerror = (error) => {
+          console.error('Admin WebSocket error:', error);
+          setWsConnection(null);
+          // Retry connection after 3 seconds
+          setTimeout(() => {
+            connectAdminWebSocket();
+          }, 3000);
+        };
+      })
+      .catch(err => {
+        console.error('connectAdminWebSocket verify error:', err);
+      });
+  };
 
   useEffect(() => {
     fetchData();
@@ -39,79 +121,32 @@ const LiveChatQueue: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // WebSocket connection for active chat session
+  // WebSocket connection - establish immediately when component mounts
   useEffect(() => {
-    if (activeChatSession && !wsConnection) {
-      // Get admin user ID from token
-      const token = localStorage.getItem('admin_token');
-      if (token) {
-        // Extract admin ID from token by making a request to verify endpoint
-        fetch('http://localhost:8000/auth/verify', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success) {
-            const extractedAdminId = data.user.id || data.user.user_id;
-            console.log('Admin ID from token:', extractedAdminId);
-            setAdminId(extractedAdminId);
-            
-            const ws = new WebSocket(`ws://localhost:8000/chat/ws/support/${extractedAdminId}`);
-            
-            ws.onopen = () => {
-              console.log('Admin WebSocket connected with ID:', extractedAdminId);
-              setWsConnection(ws);
-              // Send a test message to verify connection
-              console.log('WebSocket connection established successfully');
-            };
-            
-            ws.onmessage = (event) => {
-              const data = JSON.parse(event.data);
-              console.log('Admin received message:', data);
-              
-              if (data.type === 'chat_message') {
-                setMessages(prev => [...prev, {
-                  id: Date.now(),
-                  sender_type: data.sender_type,
-                  sender_id: data.sender_id,
-                  message: data.message,
-                  message_type: data.message_type || 'text',
-                  is_read: false,
-                  created_at: new Date().toISOString()
-                }]);
-              }
-            };
-            
-            ws.onclose = () => {
-              console.log('Admin WebSocket disconnected');
-              setWsConnection(null);
-            };
-            
-            ws.onerror = (error) => {
-              console.error('Admin WebSocket error:', error);
-              console.error('WebSocket connection failed. Check if server is running and endpoint is correct.');
-              setWsConnection(null);
-            };
-          } else {
-            console.error('Failed to get admin ID from token');
-          }
-        })
-        .catch(error => {
-          console.error('Error verifying admin token:', error);
-          console.error('Token verification failed. Check if admin is logged in properly.');
-        });
-      }
+    if (!wsConnection) {
+      connectAdminWebSocket();
     }
-    
     return () => {
       if (wsConnection) {
         wsConnection.close();
         setWsConnection(null);
       }
     };
+  }, []); // Empty dependency array to run only once on mount
+
+  // Ensure WebSocket is connected when a chat session is opened
+  useEffect(() => {
+    if (activeChatSession && !wsConnection) {
+      connectAdminWebSocket();
+    }
   }, [activeChatSession, wsConnection]);
+
+  // Load messages when active chat session changes
+  useEffect(() => {
+    if (activeChatSession) {
+      loadMessages();
+    }
+  }, [activeChatSession]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -138,7 +173,6 @@ const LiveChatQueue: React.FC = () => {
       user_id: activeChatSession.user_id
     };
 
-    console.log('Admin sending message:', messageData);
 
     // Add message to local state immediately for instant UI update
     const newMessageObj = {
@@ -155,7 +189,6 @@ const LiveChatQueue: React.FC = () => {
     setNewMessage('');
     
     // Send via WebSocket
-    console.log('Admin sending via WebSocket:', messageData);
     wsConnection.send(JSON.stringify(messageData));
   };
 
@@ -166,9 +199,83 @@ const LiveChatQueue: React.FC = () => {
     }
   };
 
+  const endChatSession = async () => {
+    if (!activeChatSession) {
+      return;
+    }
+    
+    
+    try {
+      const token = getAdminToken();
+      
+      const url = `http://localhost:8000/chat/sessions/${activeChatSession.id}/end`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Close the chat modal
+        setActiveChatSession(null);
+        setMessages([]);
+        // Refresh the data to update session status
+        fetchData();
+      } else {
+        const errorData = await response.text();
+        console.error('❌ Failed to end chat session:', response.status, errorData);
+      }
+    } catch (error) {
+      console.error('❌ Error ending chat session:', error);
+    }
+  };
+
+  const loadMessages = async () => {
+    if (!activeChatSession) return;
+    
+    try {
+      const token = getAdminToken();
+      const response = await fetch(`http://localhost:8000/chat/sessions/${activeChatSession.id}/messages`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data.messages || []);
+      }
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    }
+  };
+
+  const fetchFeedbackStats = async () => {
+    try {
+      const token = getAdminToken();
+      const response = await fetch('http://localhost:8000/chat/feedback/stats', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setFeedbackStats(data);
+      }
+    } catch (error) {
+      console.error('Error fetching feedback stats:', error);
+    }
+  };
+
   const fetchData = async () => {
     try {
-      const token = localStorage.getItem('admin_token');
+      const token = getAdminToken();
       
       // Fetch pending requests
       const requestsResponse = await fetch('http://localhost:8000/chat/requests', {
@@ -181,7 +288,7 @@ const LiveChatQueue: React.FC = () => {
         const requestsData = await requestsResponse.json();
         setRequests(requestsData.requests);
       }
-
+  
       // Fetch active sessions
       const sessionsResponse = await fetch('http://localhost:8000/chat/sessions', {
         headers: {
@@ -194,6 +301,45 @@ const LiveChatQueue: React.FC = () => {
         setSessions(sessionsData.sessions);
       }
 
+      // Fetch feedback stats
+      await fetchFeedbackStats();
+
+      // Fetch total sessions count
+      const totalSessionsResponse = await fetch('http://localhost:8000/chat/sessions/total', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (totalSessionsResponse.ok) {
+        const totalData = await totalSessionsResponse.json();
+        setTotalSessions(totalData.total_sessions || 0);
+      }
+
+      // Fetch all sessions
+      const allSessionsResponse = await fetch('http://localhost:8000/chat/sessions/all', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (allSessionsResponse.ok) {
+        const allSessionsData = await allSessionsResponse.json();
+        setAllSessions(allSessionsData.sessions || []);
+      }
+
+      // Fetch rejected requests
+      const rejectedRequestsResponse = await fetch('http://localhost:8000/chat/requests/rejected', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (rejectedRequestsResponse.ok) {
+        const rejectedData = await rejectedRequestsResponse.json();
+        setRejectedRequests(rejectedData.rejected_requests || []);
+      }
+  
       setError('');
     } catch (error) {
       console.error('Error fetching chat data:', error);
@@ -205,7 +351,7 @@ const LiveChatQueue: React.FC = () => {
 
   const handleAcceptRequest = async (requestId: number) => {
     try {
-      const token = localStorage.getItem('admin_token');
+      const token = getAdminToken();
       const response = await fetch(`http://localhost:8000/chat/requests/${requestId}/accept`, {
         method: 'POST',
         headers: {
@@ -242,7 +388,7 @@ const LiveChatQueue: React.FC = () => {
 
   const handleRejectRequest = async (requestId: number) => {
     try {
-      const token = localStorage.getItem('admin_token');
+      const token = getAdminToken();
       const response = await fetch(`http://localhost:8000/chat/requests/${requestId}/reject`, {
         method: 'POST',
         headers: {
@@ -287,9 +433,67 @@ const LiveChatQueue: React.FC = () => {
 
   return (
     <div style={{ padding: '20px' }}>
-      <h2 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '20px', color: '#1f2937' }}>
-        Live Chat Queue
-      </h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h2 style={{ fontSize: '24px', fontWeight: '600', color: '#1f2937' }}>
+          Live Chat Queue
+        </h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button
+            onClick={() => setShowRejectedRequests(true)}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#ef4444',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            Rejected Requests({rejectedRequests.length})
+          </button>
+          <button
+            onClick={() => setShowFeedbackStats(true)}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            📊 Feedback Stats
+          </button>
+          <div style={{
+            padding: '8px 12px',
+            borderRadius: '20px',
+            fontSize: '14px',
+            backgroundColor: wsConnection ? '#dcfce7' : '#fef2f2',
+            color: wsConnection ? '#166534' : '#dc2626'
+          }}>
+            {wsConnection ? '🟢 Connected' : '🔴 Connecting...'}
+          </div>
+          {!wsConnection && (
+            <button
+              onClick={connectAdminWebSocket}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer'
+              }}
+            >
+              Connect WebSocket
+            </button>
+          )}
+        </div>
+      </div>
 
       {error && (
         <div style={{
@@ -477,6 +681,72 @@ const LiveChatQueue: React.FC = () => {
         )}
       </div>
 
+      {/* All Sessions */}
+      <div style={{ marginTop: '32px' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#374151' }}>
+          All Sessions ({allSessions.length})
+        </h3>
+        
+        {allSessions.length === 0 ? (
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#f9fafb',
+            borderRadius: '8px',
+            textAlign: 'center',
+            color: '#6b7280'
+          }}>
+            No chat sessions found
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {allSessions.map((session) => (
+              <div key={session.id} style={{
+                padding: '16px',
+                backgroundColor: 'white',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div>
+                    <div style={{ fontSize: '16px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                      {session.user_name}
+                    </div>
+                    <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '8px' }}>
+                      {session.user_email}
+                    </div>
+                    <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '8px' }}>
+                      Category: {session.category_name}
+                    </div>
+                    <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '8px' }}>
+                      Support: {session.support_name}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                      Started: {new Date(session.started_at).toLocaleString()}
+                    </div>
+                    {session.ended_at && (
+                      <div style={{ fontSize: '12px', color: '#9ca3af' }}>
+                        Ended: {new Date(session.ended_at).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{
+                    padding: '4px 8px',
+                    backgroundColor: session.status === 'active' ? '#10b981' : '#6b7280',
+                    color: 'white',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    fontWeight: '500'
+                  }}>
+                    {session.status === 'active' ? 'Active' : 'Ended'}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Chat Interface Modal */}
       {activeChatSession && (
         <div style={{
@@ -523,19 +793,36 @@ const LiveChatQueue: React.FC = () => {
                   {wsConnection ? '🟢 Connected' : '🔴 Connecting...'}
                 </p>
               </div>
-              <button
-                onClick={() => setActiveChatSession(null)}
-                style={{
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  color: 'white',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  padding: '0 10px'
-                }}
-              >
-                ×
-              </button>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <button
+                  onClick={endChatSession}
+                  style={{
+                    backgroundColor: '#dc2626',
+                    border: 'none',
+                    color: 'white',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    padding: '6px 12px',
+                    borderRadius: '4px',
+                    fontWeight: '500'
+                  }}
+                >
+                  End Chat
+                </button>
+                <button
+                  onClick={() => setActiveChatSession(null)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: 'white',
+                    fontSize: '24px',
+                    cursor: 'pointer',
+                    padding: '0 10px'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
             {/* Chat Messages Area */}
@@ -640,8 +927,357 @@ const LiveChatQueue: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Feedback Stats Modal */}
+      {showFeedbackStats && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '30px',
+            maxWidth: '800px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)'
+          }}>
+            {/* Header */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              marginBottom: '30px',
+              borderBottom: '1px solid #e5e7eb',
+              paddingBottom: '20px'
+            }}>
+              <h2 style={{ 
+                margin: 0, 
+                fontSize: '24px', 
+                fontWeight: '600',
+                color: '#1f2937'
+              }}>
+                📊 Feedback Analytics
+              </h2>
+              <button
+                onClick={() => setShowFeedbackStats(false)}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#6b7280'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {feedbackStats ? (
+              <div>
+                {/* Overall Stats */}
+                <div style={{ marginBottom: '30px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#374151' }}>
+                    Overall Statistics
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                    <div style={{
+                      padding: '20px',
+                      backgroundColor: '#f8fafc',
+                      borderRadius: '8px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#3b82f6' }}>
+                        {feedbackStats.total_feedback}
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#6b7280' }}>Total Feedback</div>
+                    </div>
+                    <div style={{
+                      padding: '20px',
+                      backgroundColor: '#f0fdf4',
+                      borderRadius: '8px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#10b981' }}>
+                        {feedbackStats.average_ratings.overall}
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#6b7280' }}>Avg Overall Rating</div>
+                    </div>
+                    <div style={{
+                      padding: '20px',
+                      backgroundColor: '#fef3c7',
+                      borderRadius: '8px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#f59e0b' }}>
+                        {feedbackStats.recommendation_rate}%
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#6b7280' }}>Recommendation Rate</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rating Breakdown */}
+                <div style={{ marginBottom: '30px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#374151' }}>
+                    Rating Breakdown
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+                    <div style={{
+                      padding: '16px',
+                      backgroundColor: '#f8fafc',
+                      borderRadius: '8px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#3b82f6' }}>
+                        {feedbackStats.average_ratings.support_quality}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Support Quality</div>
+                    </div>
+                    <div style={{
+                      padding: '16px',
+                      backgroundColor: '#f8fafc',
+                      borderRadius: '8px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#3b82f6' }}>
+                        {feedbackStats.average_ratings.response_time}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>Response Time</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Feedback */}
+                {feedbackStats.recent_feedback && feedbackStats.recent_feedback.length > 0 && (
+                  <div>
+                    <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#374151' }}>
+                      Recent Feedback
+                    </h3>
+                    <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                      {feedbackStats.recent_feedback.map((feedback: any, index: number) => (
+                        <div key={index} style={{
+                          padding: '16px',
+                          backgroundColor: '#f8fafc',
+                          borderRadius: '8px',
+                          marginBottom: '12px',
+                          border: '1px solid #e5e7eb'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                            <div>
+                              <div style={{ fontWeight: '600', color: '#1f2937' }}>
+                                {feedback.user_name} ({feedback.user_email})
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                Session #{feedback.session_id} • {new Date(feedback.created_at).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                Overall: {feedback.overall_rating}/5
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                Support: {feedback.support_quality}/5
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                Response: {feedback.response_time}/5
+                              </div>
+                            </div>
+                          </div>
+                          {feedback.comments && (
+                            <div style={{
+                              fontSize: '14px',
+                              color: '#374151',
+                              fontStyle: 'italic',
+                              marginTop: '8px',
+                              padding: '8px',
+                              backgroundColor: 'white',
+                              borderRadius: '4px'
+                            }}>
+                              "{feedback.comments}"
+                            </div>
+                          )}
+                          <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280' }}>
+                            {feedback.would_recommend ? '✅ Would recommend' : '❌ Would not recommend'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+                No feedback data available
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Rejected Requests Modal */}
+      {showRejectedRequests && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '30px',
+            maxWidth: '900px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)'
+          }}>
+            {/* Header */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              marginBottom: '30px',
+              borderBottom: '1px solid #e5e7eb',
+              paddingBottom: '20px'
+            }}>
+              <h2 style={{ 
+                margin: 0, 
+                fontSize: '24px', 
+                fontWeight: '600',
+                color: '#1f2937'
+              }}>
+                Rejected Request({rejectedRequests.length})
+              </h2>
+              <button
+                onClick={() => setShowRejectedRequests(false)}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#6b7280'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Content */}
+            {rejectedRequests.length > 0 ? (
+              <div>
+                <div style={{ display: 'grid', gap: '16px' }}>
+                  {rejectedRequests.map((request) => (
+                    <div key={request.id} style={{
+                      padding: '20px',
+                      backgroundColor: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      borderRadius: '8px',
+                      borderLeft: '4px solid #ef4444'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+                        <div>
+                          <div style={{ fontSize: '18px', fontWeight: '600', color: '#1f2937', marginBottom: '4px' }}>
+                            {request.user_name}
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '8px' }}>
+                            {request.user_email}
+                          </div>
+                        </div>
+                        <div style={{
+                          padding: '4px 8px',
+                          backgroundColor: '#ef4444',
+                          color: 'white',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          fontWeight: '500'
+                        }}>
+                          Rejected
+                        </div>
+                      </div>
+                      
+                      <div style={{ marginBottom: '12px' }}>
+                        <div style={{ fontSize: '14px', color: '#374151', marginBottom: '4px' }}>
+                          <strong>Category:</strong> {request.category_name}
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#374151', marginBottom: '4px' }}>
+                          <strong>Rejected by:</strong> {request.rejected_by}
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#374151', marginBottom: '4px' }}>
+                          <strong>Requested at:</strong> {new Date(request.created_at).toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: '14px', color: '#374151', marginBottom: '4px' }}>
+                          <strong>Rejected at:</strong> {new Date(request.rejected_at).toLocaleString()}
+                        </div>
+                      </div>
+
+                      {request.message && (
+                        <div style={{
+                          backgroundColor: 'white',
+                          padding: '12px',
+                          borderRadius: '6px',
+                          border: '1px solid #e5e7eb',
+                          marginBottom: '12px'
+                        }}>
+                          <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '4px' }}>
+                            User's Query:
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#6b7280', lineHeight: '1.5' }}>
+                            {request.message}
+                          </div>
+                        </div>
+                      )}
+
+                      {request.rejection_reason && (
+                        <div style={{
+                          backgroundColor: '#fef2f2',
+                          padding: '12px',
+                          borderRadius: '6px',
+                          border: '1px solid #fecaca'
+                        }}>
+                          <div style={{ fontSize: '14px', fontWeight: '600', color: '#dc2626', marginBottom: '4px' }}>
+                            Rejection Reason:
+                          </div>
+                          <div style={{ fontSize: '14px', color: '#7f1d1d', lineHeight: '1.5' }}>
+                            {request.rejection_reason}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+                No rejected requests found
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default LiveChatQueue;
+
+

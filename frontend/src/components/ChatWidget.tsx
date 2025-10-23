@@ -230,9 +230,7 @@ const ChatWidget: React.FC = () => {
       const ws = new WebSocket(`ws://localhost:8000/chat/ws/${currentUserId}`)
       
       ws.onopen = () => {
-        console.log('User WebSocket connected for live chat with ID:', currentUserId)
         setWsConnection(ws)
-        console.log('User WebSocket connection established successfully')
       }
       
       ws.onmessage = (event) => {
@@ -242,7 +240,8 @@ const ChatWidget: React.FC = () => {
           setLiveChatSession({
             sessionId: message.data.session_id,
             userId: currentUserId,
-            supportUserId: message.data.support_user_id || 1
+            supportUserId: message.data.support_user_id || 1,
+            userName: message.data.user_name || 'User'
           })
           setShowChatNowModal(false)
         } else if (message.type === 'chat_rejected') {
@@ -252,7 +251,6 @@ const ChatWidget: React.FC = () => {
       }
       
       ws.onclose = () => {
-        console.log('WebSocket disconnected')
         setWsConnection(null)
       }
       
@@ -489,7 +487,6 @@ const ChatWidget: React.FC = () => {
       case 5: // Query
         if (userInput.trim()) {
           const updatedData = { ...ticketData, query: userInput.trim() }
-          console.log('Setting query in ticketData:', updatedData)
           setTicketData(updatedData)
           nextStep = 6
           botResponse = "Perfect! Let me create your support ticket now..."
@@ -523,7 +520,6 @@ const ChatWidget: React.FC = () => {
 
   const createTicketWithData = async (data: typeof ticketData) => {
     setTicketLoading(true)
-    console.log('Creating ticket with data:', data)
     try {
       const response = await fetch('http://localhost:8000/tickets/create', {
         method: 'POST',
@@ -580,7 +576,6 @@ const ChatWidget: React.FC = () => {
 
   const createTicket = async () => {
     setTicketLoading(true)
-    console.log('Creating ticket with data:', ticketData)
     try {
       const response = await fetch('http://localhost:8000/tickets/create', {
         method: 'POST',
@@ -1007,6 +1002,7 @@ const ChatWidget: React.FC = () => {
           supportUserId={liveChatSession.supportUserId}
           onEndChat={() => setLiveChatSession(null)}
           wsConnection={wsConnection}
+          userName={liveChatSession.userName || 'User'}
         />
       )}
 

@@ -347,13 +347,30 @@
 
         function endChat() {
             if (confirm('Are you sure you want to end this chat?')) {
+                // Call backend API to end the session
+                fetch(`http://localhost:8000/chat/sessions/${sessionId}/end`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        console.log('✅ Chat session ended successfully');
+                    } else {
+                        console.error('❌ Failed to end chat session');
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Error ending chat session:', error);
+                });
+                
+                // Close WebSocket connection
                 if (socket) {
-                    socket.send(JSON.stringify({
-                        type: 'end_chat',
-                        session_id: parseInt(sessionId),
-                        sender_id: supportUserId
-                    }));
+                    socket.close();
                 }
+                
+                // Redirect to admin page
                 window.location.href = '/admin.html';
             }
         }

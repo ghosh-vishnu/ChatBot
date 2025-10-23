@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import FeedbackPopup from './FeedbackPopup';
 
 interface ChatMessage {
   id: number;
@@ -16,6 +17,7 @@ interface LiveChatWindowProps {
   supportUserId: number;
   onEndChat: () => void;
   wsConnection?: WebSocket | null;
+  userName?: string;
 }
 
 const LiveChatWindow: React.FC<LiveChatWindowProps> = ({ 
@@ -23,12 +25,15 @@ const LiveChatWindow: React.FC<LiveChatWindowProps> = ({
   userId, 
   supportUserId, 
   onEndChat,
-  wsConnection
+  wsConnection,
+  userName = 'User'
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [isChatEnded, setIsChatEnded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -56,10 +61,8 @@ const LiveChatWindow: React.FC<LiveChatWindowProps> = ({
     if (wsConnection) {
       const handleMessage = (event: MessageEvent) => {
         const data = JSON.parse(event.data);
-        console.log('User received WebSocket message:', data);
         
         if (data.type === 'chat_message') {
-          console.log('Adding message to user chat:', data);
           setMessages(prev => [...prev, {
             id: Date.now(), // Temporary ID
             sender_type: data.sender_type,
@@ -71,6 +74,9 @@ const LiveChatWindow: React.FC<LiveChatWindowProps> = ({
           }]);
         } else if (data.type === 'typing') {
           setIsTyping(data.isTyping);
+        } else if (data.type === 'session_ended') {
+          setIsChatEnded(true);
+          setShowFeedback(true);
         }
       };
 
@@ -87,7 +93,7 @@ const LiveChatWindow: React.FC<LiveChatWindowProps> = ({
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !wsConnection) return;
+    if (!newMessage.trim() || !wsConnection || isChatEnded) return;
 
     const messageText = newMessage.trim();
     const messageData = {
@@ -100,7 +106,6 @@ const LiveChatWindow: React.FC<LiveChatWindowProps> = ({
       support_user_id: supportUserId
     };
 
-    console.log('User sending message:', messageData);
 
     // Add message to local state immediately for instant UI update
     const newMessageObj = {
@@ -117,7 +122,6 @@ const LiveChatWindow: React.FC<LiveChatWindowProps> = ({
     setNewMessage('');
     
     // Send via WebSocket
-    console.log('Sending via WebSocket:', messageData);
     wsConnection.send(JSON.stringify(messageData));
   };
 
@@ -136,10 +140,55 @@ const LiveChatWindow: React.FC<LiveChatWindowProps> = ({
   };
 
   const endChat = async () => {
-    if (wsRef.current) {
-      wsRef.current.close();
+    try {
+      // Call backend API to end the session
+      const response = await fetch(`http://localhost:8000/chat/sessions/${sessionId}/end`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        setIsChatEnded(true);
+        setShowFeedback(true);
+      } else {
+        console.error('❌ Failed to end chat session');
+      }
+    } catch (error) {
+      console.error('❌ Error ending chat session:', error);
     }
-    onEndChat();
+  };
+
+  const handleFeedbackSubmit = async (feedback: any) => {
+    try {
+      const response = await fetch('http://localhost:8000/chat/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          user_id: userId,
+          admin_user_id: supportUserId,
+          ...feedback
+        })
+      });
+
+      if (response.ok) {
+        setShowFeedback(false);
+        // Close WebSocket connection and call parent callback
+        if (wsConnection) {
+          wsConnection.close();
+        }
+        onEndChat();
+      } else {
+        throw new Error('Failed to submit feedback');
+      }
+    } catch (error) {
+      console.error('❌ Error submitting feedback:', error);
+      throw error;
+    }
   };
 
   return (
@@ -262,19 +311,23 @@ const LiveChatWindow: React.FC<LiveChatWindowProps> = ({
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Type your message..."
+            placeholder={isChatEnded ? "Chat has ended" : "Type your message..."}
+            disabled={isChatEnded}
             style={{
               flex: 1,
               padding: '8px 12px',
               border: '1px solid #d1d5db',
               borderRadius: '20px',
               fontSize: '14px',
-              outline: 'none'
+              outline: 'none',
+              backgroundColor: isChatEnded ? '#f3f4f6' : 'white',
+              color: isChatEnded ? '#9ca3af' : '#374151',
+              cursor: isChatEnded ? 'not-allowed' : 'text'
             }}
           />
           <button
             onClick={sendMessage}
-            disabled={!newMessage.trim()}
+            disabled={!newMessage.trim() || isChatEnded}
             style={{
               padding: '8px 12px',
               backgroundColor: newMessage.trim() ? '#3b82f6' : '#9ca3af',
@@ -289,6 +342,22 @@ const LiveChatWindow: React.FC<LiveChatWindowProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Feedback Popup */}
+      <FeedbackPopup
+        isOpen={showFeedback}
+        onClose={() => {
+          setShowFeedback(false);
+          if (wsConnection) {
+            wsConnection.close();
+          }
+          onEndChat();
+        }}
+        onSubmit={handleFeedbackSubmit}
+        sessionId={sessionId}
+        adminUserId={supportUserId}
+        userName={userName}
+      />
     </div>
   );
 };

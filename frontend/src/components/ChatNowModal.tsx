@@ -28,6 +28,7 @@ const ChatNowModal: React.FC<ChatNowModalProps> = ({ isOpen, onClose, onChatStar
     }
   }, [isOpen]);
 
+
   const fetchCategories = async () => {
     try {
       const response = await fetch('http://localhost:8000/chat/categories');
@@ -62,7 +63,7 @@ const ChatNowModal: React.FC<ChatNowModalProps> = ({ isOpen, onClose, onChatStar
       if (data.success) {
         alert('Chat request sent! Waiting for support agent...');
         onRequestCreated(data.user_id);
-        onClose();
+        // Don't close modal - let WebSocket handle it
       } else {
         setError('Failed to create chat request. Please try again.');
       }

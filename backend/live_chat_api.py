@@ -19,6 +19,16 @@ class ChatRequestCreate(BaseModel):
     category_id: int
     message: Optional[str] = None
 
+class FeedbackCreate(BaseModel):
+    session_id: int
+    user_id: str
+    admin_user_id: int
+    overall_rating: int
+    support_quality: int
+    response_time: int
+    comments: Optional[str] = None
+    would_recommend: bool
+
 class ChatRequestResponse(BaseModel):
     id: int
     user_name: Optional[str]
@@ -85,16 +95,17 @@ class ConnectionManager:
             await self.user_connections[user_id].send_text(message)
 
     async def send_to_support(self, support_user_id: str, message: str):
-        print(f"Attempting to send to support_user_id: {support_user_id}")
-        print(f"Available support connections: {list(self.support_connections.keys())}")
         if support_user_id in self.support_connections:
-            print(f"Sending message to support {support_user_id}")
             await self.support_connections[support_user_id].send_text(message)
-        else:
-            print(f"Support user {support_user_id} not connected")
 
     async def broadcast_to_support(self, message: str):
         for connection in self.support_connections.values():
+            await connection.send_text(message)
+
+    async def broadcast_to_session(self, session_id: int, message: str):
+        """Broadcast message to all users in a specific session"""
+        # Send to all user connections (since we don't track session-specific connections)
+        for connection in self.user_connections.values():
             await connection.send_text(message)
 
 manager = ConnectionManager()
@@ -206,8 +217,8 @@ async def create_chat_request(request: ChatRequestCreate):
             "created_at": datetime.now().isoformat()
         }))
     except Exception as e:
-        print(f"Notification creation error: {e}")
         # Continue without notification if it fails
+        pass
     
     return {
         "success": True,
@@ -281,7 +292,8 @@ async def accept_chat_request(request_id: int, credentials: HTTPAuthorizationCre
         WHERE id = ?
     """, (user_id, datetime.now().isoformat(), request_id))
     
-    # Create chat session
+    # Create chat session with proper support user ID
+    # user_id is the actual logged-in support agent's ID
     cursor.execute("""
         INSERT INTO chat_sessions (request_id, user_id, support_user_id)
         VALUES (?, ?, ?)
@@ -292,16 +304,21 @@ async def accept_chat_request(request_id: int, credentials: HTTPAuthorizationCre
     conn.commit()
     conn.close()
     
+    # Get support agent name dynamically
+    support_name = user.get("full_name") or user.get("username") or "Support Agent"
+    
     # Notify user
-    await manager.send_to_user(request["user_id"], json.dumps({
+    notification_data = {
         "type": "chat_accepted",
         "data": {
             "session_id": session_id,
             "support_user_id": user_id,
-            "support_name": user.get("full_name", "Support Agent"),
+            "support_name": support_name,
+            "user_name": request["user_name"] if request["user_name"] else "User",
             "message": "Your chat request has been accepted. You can now start chatting!"
         }
-    }))
+    }
+    await manager.send_to_user(request["user_id"], json.dumps(notification_data))
     
     return {
         "success": True,
@@ -354,6 +371,49 @@ async def reject_chat_request(request_id: int, credentials: HTTPAuthorizationCre
         "message": "Chat request rejected"
     }
 
+@router.post("/sessions/{session_id}/end")
+async def end_chat_session(session_id: int, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """End a chat session"""
+    # Verify token and get user
+    user_response = await verify_token(credentials)
+    user = user_response["user"]
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Check if session exists and is active
+    cursor.execute("""
+        SELECT * FROM chat_sessions 
+        WHERE id = ? AND status = 'active'
+    """, (session_id,))
+    
+    session = cursor.fetchone()
+    if not session:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Active chat session not found")
+    
+    # Update session status to ended
+    cursor.execute("""
+        UPDATE chat_sessions 
+        SET status = 'ended', ended_at = datetime('now')
+        WHERE id = ?
+    """, (session_id,))
+    
+    conn.commit()
+    conn.close()
+    
+    # Notify all connected users about session end
+    try:
+        await manager.broadcast_to_session(session_id, json.dumps({
+            "type": "session_ended",
+            "session_id": session_id,
+            "message": "Chat session has been ended"
+        }))
+    except Exception as e:
+        pass
+    
+    return {"message": "Chat session ended successfully"}
+
 @router.get("/sessions")
 async def get_chat_sessions(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Get active chat sessions for support user"""
@@ -387,6 +447,97 @@ async def get_chat_sessions(credentials: HTTPAuthorizationCredentials = Depends(
     
     conn.close()
     return {"sessions": sessions}
+
+@router.get("/sessions/total")
+async def get_total_sessions(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get total number of chat sessions"""
+    # Verify token and get user
+    user_response = await verify_token(credentials)
+    user = user_response["user"]
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT COUNT(*) as total FROM chat_sessions")
+    total = cursor.fetchone()[0]
+    conn.close()
+    
+    return {"total_sessions": total}
+
+@router.get("/sessions/all")
+async def get_all_sessions(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get all chat sessions (active and ended)"""
+    # Verify token and get user
+    user_response = await verify_token(credentials)
+    user = user_response["user"]
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT cs.id, cs.request_id, cs.user_id, cs.support_user_id, cs.status, cs.started_at, cs.ended_at,
+               cr.user_name, cr.user_email, cc.name as category_name,
+               COALESCE(u.full_name, u.username, 'Support Agent') as support_name
+        FROM chat_sessions cs
+        JOIN chat_requests cr ON cs.request_id = cr.id
+        JOIN chat_categories cc ON cr.category_id = cc.id
+        LEFT JOIN users u ON cs.support_user_id = u.id
+        ORDER BY cs.started_at DESC
+    """)
+    
+    sessions = []
+    for row in cursor.fetchall():
+        sessions.append({
+            "id": row[0],
+            "request_id": row[1],
+            "user_id": row[2],
+            "user_name": row[7] or "Anonymous",
+            "user_email": row[8],
+            "category_name": row[9],
+            "support_name": row[10] or "Unassigned",
+            "status": row[4],
+            "started_at": row[5],
+            "ended_at": row[6]
+        })
+    
+    conn.close()
+    return {"sessions": sessions}
+
+@router.get("/requests/rejected")
+async def get_rejected_requests(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get all rejected chat requests with full details"""
+    # Verify token and get user
+    user_response = await verify_token(credentials)
+    user = user_response["user"]
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT cr.*, cc.name as category_name, u.username as rejected_by
+        FROM chat_requests cr
+        JOIN chat_categories cc ON cr.category_id = cc.id
+        LEFT JOIN users u ON cr.rejected_by = u.id
+        WHERE cr.status = 'rejected'
+        ORDER BY cr.created_at DESC
+    """)
+    
+    rejected_requests = []
+    for row in cursor.fetchall():
+        rejected_requests.append({
+            "id": row["id"],
+            "user_name": row["user_name"] or "Anonymous",
+            "user_email": row["user_email"],
+            "category_name": row["category_name"],
+            "message": row["message"],
+            "rejected_by": row["rejected_by"] or "System",
+            "rejection_reason": row["rejection_reason"],
+            "created_at": row["created_at"],
+            "rejected_at": row["rejected_at"]
+        })
+    
+    conn.close()
+    return {"rejected_requests": rejected_requests}
 
 @router.get("/sessions/{session_id}/messages/public")
 async def get_chat_messages_public(session_id: int):
@@ -467,10 +618,8 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
         while True:
             data = await websocket.receive_text()
             message_data = json.loads(data)
-            print(f"User WebSocket received: {message_data}")
             
             if message_data["type"] == "chat_message":
-                print(f"Processing chat message from user: {message_data}")
                 # Save message to database
                 conn = get_db_connection()
                 cursor = conn.cursor()
@@ -500,34 +649,36 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
                 conn.close()
                 
                 if session:
-                    print(f"Session found: user_id={session[0]}, support_user_id={session[1]}")
                     # Forward message to other participant
                     if message_data["sender_type"] == "user":
                         # User sent message, forward to support
-                        print(f"Forwarding user message to support_user_id: {session[1]}")
                         await manager.send_to_support(str(session[1]), data)
                     else:
                         # Support sent message, forward to user
-                        print(f"Forwarding support message to user_id: {session[0]}")
                         await manager.send_to_user(session[0], data)
                 else:
-                    print(f"No session found for session_id: {message_data['session_id']}")
-                    
+                    # Session not found - send error back to sender
+                    error_message = {
+                        "type": "error",
+                        "message": "Chat session not found or expired"
+                    }
+                    await websocket.send_text(json.dumps(error_message))
     except WebSocketDisconnect:
         manager.disconnect(websocket, user_id, "user")
 
 @router.websocket("/ws/support/{support_user_id}")
 async def support_websocket_endpoint(websocket: WebSocket, support_user_id: str):
-    await manager.connect(websocket, support_user_id, "support")
-    print(f"Support WebSocket connected for support_user_id: {support_user_id}")
+    try:
+        await manager.connect(websocket, support_user_id, "support")
+    except Exception as e:
+        await websocket.close()
+        return
     try:
         while True:
             data = await websocket.receive_text()
             message_data = json.loads(data)
-            print(f"Support WebSocket received: {message_data}")
             
             if message_data["type"] == "chat_message":
-                print(f"Processing chat message from support: {message_data}")
                 # Save message to database
                 conn = get_db_connection()
                 cursor = conn.cursor()
@@ -562,3 +713,142 @@ async def support_websocket_endpoint(websocket: WebSocket, support_user_id: str)
                     
     except WebSocketDisconnect:
         manager.disconnect(websocket, support_user_id, "support")
+
+# Feedback endpoints
+@router.post("/feedback")
+async def submit_feedback(feedback: FeedbackCreate):
+    """Submit chat feedback"""
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Validate session exists and is ended
+        cursor.execute("""
+            SELECT id, status FROM chat_sessions 
+            WHERE id = ? AND user_id = ?
+        """, (feedback.session_id, feedback.user_id))
+        
+        session = cursor.fetchone()
+        if not session:
+            raise HTTPException(status_code=404, detail="Chat session not found")
+        
+        if session[1] != 'ended':
+            raise HTTPException(status_code=400, detail="Can only submit feedback for ended sessions")
+        
+        # Insert feedback
+        cursor.execute("""
+            INSERT INTO chat_feedback (
+                session_id, user_id, admin_user_id, overall_rating, 
+                support_quality, response_time, comments, would_recommend
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            feedback.session_id,
+            feedback.user_id,
+            feedback.admin_user_id,
+            feedback.overall_rating,
+            feedback.support_quality,
+            feedback.response_time,
+            feedback.comments,
+            feedback.would_recommend
+        ))
+        
+        conn.commit()
+        feedback_id = cursor.lastrowid
+        
+        return {"message": "Feedback submitted successfully", "feedback_id": feedback_id}
+        
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail="Failed to submit feedback")
+    finally:
+        conn.close()
+
+@router.get("/feedback/stats")
+async def get_feedback_stats(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get feedback statistics for admin dashboard"""
+    
+    # Verify admin token
+    user_response = await verify_token(credentials)
+    user = user_response["user"]
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Get overall stats
+        cursor.execute("""
+            SELECT 
+                COUNT(*) as total_feedback,
+                AVG(overall_rating) as avg_overall,
+                AVG(support_quality) as avg_support,
+                AVG(response_time) as avg_response,
+                SUM(CASE WHEN would_recommend = 1 THEN 1 ELSE 0 END) as recommend_count
+            FROM chat_feedback
+        """)
+        
+        stats = cursor.fetchone()
+        
+        # Get recent feedback
+        cursor.execute("""
+            SELECT 
+                cf.*,
+                cr.user_name,
+                cr.user_email,
+                u.username as admin_name
+            FROM chat_feedback cf
+            LEFT JOIN chat_sessions cs ON cf.session_id = cs.id
+            LEFT JOIN chat_requests cr ON cs.request_id = cr.id
+            LEFT JOIN users u ON cf.admin_user_id = u.id
+            ORDER BY cf.created_at DESC
+            LIMIT 10
+        """)
+        
+        recent_feedback = cursor.fetchall()
+        
+        # Get rating distribution
+        cursor.execute("""
+            SELECT 
+                overall_rating,
+                COUNT(*) as count
+            FROM chat_feedback
+            GROUP BY overall_rating
+            ORDER BY overall_rating
+        """)
+        
+        rating_distribution = cursor.fetchall()
+        
+        return {
+            "total_feedback": stats[0] or 0,
+            "average_ratings": {
+                "overall": round(stats[1] or 0, 2),
+                "support_quality": round(stats[2] or 0, 2),
+                "response_time": round(stats[3] or 0, 2)
+            },
+            "recommendation_rate": round((stats[4] or 0) / max(stats[0] or 1, 1) * 100, 2),
+            "recent_feedback": [
+                {
+                    "id": row[0],
+                    "session_id": row[1],
+                    "user_name": row[10] if row[10] else "Unknown",
+                    "user_email": row[11] if row[11] else "Unknown",
+                    "admin_name": row[12] if row[12] else "Unknown",
+                    "overall_rating": row[4],
+                    "support_quality": row[5],
+                    "response_time": row[6],
+                    "comments": row[7],
+                    "would_recommend": bool(row[8]),
+                    "created_at": row[9]
+                }
+                for row in recent_feedback
+            ],
+            "rating_distribution": [
+                {"rating": row[0], "count": row[1]}
+                for row in rating_distribution
+            ]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to fetch feedback statistics")
+    finally:
+        conn.close()

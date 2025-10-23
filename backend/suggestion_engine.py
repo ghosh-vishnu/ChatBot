@@ -377,7 +377,7 @@ class SuggestionEngine:
                 'action': 'download'
             }
         ]
-    
+
     def get_database_faq_suggestions(self, limit: int = 6) -> List[Dict]:
         """Get FAQ suggestions from database"""
         try:

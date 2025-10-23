@@ -184,7 +184,7 @@ async def chat(req: ChatRequest):
             sources=["Venturing Digitally"],
             suggestions=suggestions
         )
-    
+
     # Step 1: Check FAQs for non-greeting queries
     faq_response = None
     try:

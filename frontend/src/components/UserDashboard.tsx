@@ -232,7 +232,6 @@ const UserDashboard: React.FC = () => {
     const eventSource = new EventSource(`http://localhost:8000/user/notifications/stream?token=${token}`)
     
     eventSource.onopen = () => {
-      console.log('Connected to user notification stream')
     }
 
     eventSource.onmessage = (event) => {
@@ -241,7 +240,6 @@ const UserDashboard: React.FC = () => {
         
         switch (data.type) {
           case 'connected':
-            console.log('User notification stream connected')
             break
             
           case 'new_notification':

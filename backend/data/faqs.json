@@ -15,7 +15,7 @@
     "answer": "We offer flexible pricing models including hourly rates, fixed-price projects, and retainer packages. Contact us for a customized quote based on your specific requirements.",
     "category": "Pricing",
     "customCategory": "",
-    "views": 15,
+    "views": 16,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:02:12.477038"
   },
@@ -75,7 +75,7 @@
     "answer": "Yes, our industrial training programs are tailored for both students and working professionals.",
     "category": "Custom",
     "customCategory": "Internship & Training",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:10.021240"
   },
@@ -105,7 +105,7 @@
     "answer": "Yes, most training involves hands-on projects and assignments to boost learning.",
     "category": "Custom",
     "customCategory": "Internship & Training",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:10.287707"
   },
@@ -195,7 +195,7 @@
     "answer": "We use technologies like HTML5, CSS3, JavaScript, React, Angular, PHP, Python, and more.",
     "category": "Custom",
     "customCategory": "Web Development",
-    "views": 4,
+    "views": 5,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:10.902055"
   },
@@ -335,7 +335,7 @@
     "answer": "We provide specialized training in AI, ML, deep learning, NLP, and computer vision.",
     "category": "Custom",
     "customCategory": "AI/ML and Data Analytics",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:13.083606"
   },
@@ -345,7 +345,7 @@
     "answer": "Training covers TensorFlow, Keras, Scikit-learn, Pandas, Numpy, and Matplotlib.",
     "category": "Custom",
     "customCategory": "AI/ML and Data Analytics",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:13.218800"
   },
@@ -375,7 +375,7 @@
     "answer": "Yes, we analyze and visualize data with advanced tools.",
     "category": "Custom",
     "customCategory": "AI/ML and Data Analytics",
-    "views": 2,
+    "views": 3,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:13.767902"
   },
@@ -435,7 +435,7 @@
     "answer": "Our DevOps training covers workflows, pipelines, automation, version control, and cloud platforms.",
     "category": "Custom",
     "customCategory": "DevOps and Cloud",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:14.650426"
   },
@@ -465,7 +465,7 @@
     "answer": "Yes, we handle cloud deployment.",
     "category": "Custom",
     "customCategory": "DevOps and Cloud",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:15.032879"
   },
@@ -475,7 +475,7 @@
     "answer": "Yes, we migrate applications securely to the cloud.",
     "category": "Custom",
     "customCategory": "DevOps and Cloud",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:15.131179"
   },
@@ -485,7 +485,7 @@
     "answer": "Yes, we provide AWS solutions.",
     "category": "Custom",
     "customCategory": "DevOps and Cloud",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:15.250834"
   },
@@ -505,7 +505,7 @@
     "answer": "Yes, we work with Google Cloud Platform.",
     "category": "Custom",
     "customCategory": "DevOps and Cloud",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:15.513554"
   },
@@ -575,7 +575,7 @@
     "answer": "Yes, we operate from multiple cities including Jamshedpur, Bhopal, Bangalore, and Kolkata.",
     "category": "Custom",
     "customCategory": "Company Information",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:16.889745"
   },
@@ -605,7 +605,7 @@
     "answer": "We have been serving clients for several years with innovative software solutions.",
     "category": "Custom",
     "customCategory": "Company Information",
-    "views": 1,
+    "views": 2,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:17.312091"
   },
@@ -615,7 +615,7 @@
     "answer": "We serve industries like education, healthcare, retail, manufacturing, finance, and more.",
     "category": "Custom",
     "customCategory": "Company Information",
-    "views": 1,
+    "views": 2,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:17.429158"
   },
@@ -625,7 +625,7 @@
     "answer": "We provide web development, mobile app development, custom software, AI/ML, DevOps, and analytics services.",
     "category": "Custom",
     "customCategory": "Services Overview",
-    "views": 28,
+    "views": 30,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:17.745111"
   },
@@ -635,7 +635,7 @@
     "answer": "Yes, we provide complete end-to-end digital transformation solutions.",
     "category": "Custom",
     "customCategory": "Services Overview",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:17.895934"
   },
@@ -645,7 +645,7 @@
     "answer": "Yes, we specialize in developing customized software for any business requirement.",
     "category": "Custom",
     "customCategory": "Services Overview",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:18.061940"
   },
@@ -675,7 +675,7 @@
     "answer": "Yes, we can develop scalable and secure e-commerce platforms.",
     "category": "Custom",
     "customCategory": "Services Overview",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:18.729170"
   },
@@ -695,7 +695,7 @@
     "answer": "Yes, we develop both Android and iOS mobile apps.",
     "category": "Custom",
     "customCategory": "Services Overview",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:19.094204"
   },
@@ -705,7 +705,7 @@
     "answer": "Yes, we provide HRMS software.",
     "category": "Custom",
     "customCategory": "Software Products & Solutions",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:19.388790"
   },
@@ -745,7 +745,7 @@
     "answer": "Yes, we provide hospital solutions.",
     "category": "Custom",
     "customCategory": "Software Products & Solutions",
-    "views": 1,
+    "views": 2,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:20.261443"
   },
@@ -775,7 +775,7 @@
     "answer": "Yes, we provide end-to-end e-commerce development.",
     "category": "Custom",
     "customCategory": "Software Products & Solutions",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:20.557713"
   },
@@ -795,7 +795,7 @@
     "answer": "You can contact us, and we'll schedule a consultation.",
     "category": "Custom",
     "customCategory": "Pricing & Support",
-    "views": 2,
+    "views": 4,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:21.009013"
   },
@@ -805,7 +805,7 @@
     "answer": "We follow requirement gathering, design, development, testing, and deployment steps.",
     "category": "Custom",
     "customCategory": "Pricing & Support",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:21.111317"
   },
@@ -815,7 +815,7 @@
     "answer": "Yes, we ensure data confidentiality with NDAs.",
     "category": "Custom",
     "customCategory": "Pricing & Support",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:21.202953"
   },
@@ -835,7 +835,7 @@
     "answer": "We provide both hourly and fixed-price models.",
     "category": "Custom",
     "customCategory": "Pricing & Support",
-    "views": 1,
+    "views": 2,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:21.359037"
   },
@@ -845,7 +845,7 @@
     "answer": "Yes, we offer ongoing support and maintenance.",
     "category": "Custom",
     "customCategory": "Pricing & Support",
-    "views": 15,
+    "views": 17,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:21.474293"
   },
@@ -885,7 +885,7 @@
     "answer": "Yes, we offer AMC packages.",
     "category": "Custom",
     "customCategory": "Pricing & Support",
-    "views": 0,
+    "views": 1,
     "success_rate": 85,
     "last_updated": "2025-10-14T16:15:21.843060"
   },
