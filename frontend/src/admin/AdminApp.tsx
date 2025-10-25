@@ -90,6 +90,8 @@ interface User {
   last_login?: string
   role_name?: string
   profile_image?: string
+  is_admin?: boolean
+  user_type?: string
 }
 
 interface Role {
@@ -217,6 +219,81 @@ const AdminApp: React.FC = () => {
   const [editingSubcategory, setEditingSubcategory] = useState<any>(null)
   const [newSubcategory, setNewSubcategory] = useState({ name: '', description: '', category_id: 0 })
   const [selectedCategoryForSubcategory, setSelectedCategoryForSubcategory] = useState<number | null>(null)
+  
+  // Role and Permission Management state
+  const [showAddRoleModal, setShowAddRoleModal] = useState(false)
+  const [showModulePermissionsModal, setShowModulePermissionsModal] = useState(false)
+  const [selectedModule, setSelectedModule] = useState('')
+  const [modulePermissionStates, setModulePermissionStates] = useState<Record<string, boolean>>({})
+  
+  // Module-specific permissions
+  const modulePermissions = {
+    'overview': [
+      { id: 'overview_view', name: 'View Dashboard', description: 'Access to main dashboard overview' },
+      { id: 'overview_metrics', name: 'View Metrics', description: 'See key performance indicators' },
+      { id: 'overview_stats', name: 'View Statistics', description: 'Access to statistical data' }
+    ],
+    'analytics': [
+      { id: 'analytics_view', name: 'View Analytics', description: 'Access to analytics dashboard' },
+      { id: 'analytics_reports', name: 'Generate Reports', description: 'Create and download reports' },
+      { id: 'analytics_export', name: 'Export analytics data', description: 'Export data from analytics' },
+      { id: 'analytics_realtime', name: 'View Real-time Data', description: 'See live analytics data' }
+    ],
+    'faq': [
+      { id: 'faq_view', name: 'View FAQs', description: 'See all frequently asked questions' },
+      { id: 'faq_create', name: 'Create FAQs', description: 'Add new frequently asked questions' },
+      { id: 'faq_edit', name: 'Edit FAQs', description: 'Modify existing frequently asked questions' },
+      { id: 'faq_delete', name: 'Delete FAQs', description: 'Remove frequently asked questions' },
+      { id: 'faq_categories', name: 'Manage Categories', description: 'Organize FAQs into categories' }
+    ],
+    'tickets': [
+      { id: 'tickets_view', name: 'View Tickets', description: 'See all support tickets' },
+      { id: 'tickets_assign', name: 'Assign Tickets', description: 'Assign tickets to agents' },
+      { id: 'tickets_resolve', name: 'Resolve Tickets', description: 'Mark tickets as resolved' },
+      { id: 'tickets_priority', name: 'Set Ticket Priority', description: 'Change priority level of tickets' },
+      { id: 'tickets_escalate', name: 'Escalate Tickets', description: 'Escalate tickets to higher support' }
+    ],
+    'livechat': [
+      { id: 'livechat_view', name: 'View Live Chats', description: 'Monitor ongoing live chat sessions' },
+      { id: 'livechat_respond', name: 'Respond to Chats', description: 'Send messages in live chat' },
+      { id: 'livechat_transfer', name: 'Transfer Chats', description: 'Transfer chats to other agents' },
+      { id: 'livechat_end', name: 'End Chats', description: 'End chat sessions' }
+    ],
+    'chatmanagement': [
+      { id: 'chat_categories', name: 'Manage Categories', description: 'Create/edit chat categories' },
+      { id: 'chat_subcategories', name: 'Manage Subcategories', description: 'Organize subcategories' },
+      { id: 'chat_settings', name: 'Chat Settings', description: 'Configure chat settings' },
+      { id: 'chat_agents', name: 'Manage Agents', description: 'Assign chat agents' }
+    ],
+    'reports': [
+      { id: 'reports_view_summary', name: 'View Summary Cards', description: 'Access Total FAQs, Conversations, Success Rate, Total Views' },
+      { id: 'reports_download_conversations', name: 'Download Chat Conversations', description: 'Download chat conversations in Excel format' },
+      { id: 'reports_download_analytics', name: 'Download Analytics Report', description: 'Download analytics data in Excel format' },
+      { id: 'reports_faq_performance', name: 'View FAQ Performance Report', description: 'Access FAQ performance metrics and rankings' },
+      { id: 'reports_category_performance', name: 'View Category Performance', description: 'Access category-wise performance charts and data' },
+      { id: 'reports_generate_faq_report', name: 'Generate FAQ Performance Report', description: 'Generate and download FAQ performance reports' }
+    ],
+    'users': [
+      { id: 'users_view', name: 'View Users', description: 'See user list' },
+      { id: 'users_create', name: 'Create Users', description: 'Add new users' },
+      { id: 'users_edit', name: 'Edit Users', description: 'Modify user details' },
+      { id: 'users_delete', name: 'Delete Users', description: 'Remove users' },
+      { id: 'users_roles', name: 'Manage Roles', description: 'Assign user roles' },
+      { id: 'users_permissions', name: 'Manage Permissions', description: 'Set user permissions' }
+    ]
+  }
+  
+  // Dynamic tab permissions mapping
+  const tabPermissions: Record<string, string> = {
+    'overview': 'dashboard_view',
+    'analytics': 'analytics_view',
+    'faq': 'faq_view',
+    'tickets': 'tickets_view',
+    'livechat': 'livechat_view',
+    'chatmanagement': 'chat_management',
+    'reports': 'reports_view',
+    'users': 'users_view'
+  }
   
   // Role-based access control
   const hasAccess = (tabId: string) => {
@@ -760,7 +837,7 @@ const AdminApp: React.FC = () => {
     setIsDataLoading(true)
     try {
       const token = localStorage.getItem('admin_token')
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {}
       
       // Fetch dashboard stats
       const statsResponse = await fetch('http://localhost:8000/admin/stats', {
@@ -837,8 +914,10 @@ const AdminApp: React.FC = () => {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('admin_token')
+      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {}
+      
       const response = await fetch('http://localhost:8000/api/users/users', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers
       })
       if (response.ok) {
         const data = await response.json()
@@ -852,8 +931,10 @@ const AdminApp: React.FC = () => {
   const fetchRoles = async () => {
     try {
       const token = localStorage.getItem('admin_token')
+      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {}
+      
       const response = await fetch('http://localhost:8000/api/users/roles', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers
       })
       if (response.ok) {
         const data = await response.json()
@@ -867,8 +948,10 @@ const AdminApp: React.FC = () => {
   const fetchPermissions = async () => {
     try {
       const token = localStorage.getItem('admin_token')
+      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {}
+      
       const response = await fetch('http://localhost:8000/api/users/permissions', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers
       })
       if (response.ok) {
         const data = await response.json()
@@ -882,12 +965,14 @@ const AdminApp: React.FC = () => {
   const createUser = async (userData: any) => {
     try {
       const token = localStorage.getItem('admin_token')
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+      
       const response = await fetch('http://localhost:8000/api/users/users', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify(userData)
       })
       if (response.ok) {
@@ -905,12 +990,14 @@ const AdminApp: React.FC = () => {
   const updateUser = async (userId: number, userData: any) => {
     try {
       const token = localStorage.getItem('admin_token')
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+      
       const response = await fetch(`http://localhost:8000/api/users/users/${userId}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify(userData)
       })
       if (response.ok) {
@@ -928,9 +1015,11 @@ const AdminApp: React.FC = () => {
   const deleteUser = async (userId: number) => {
     try {
       const token = localStorage.getItem('admin_token')
+      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {}
+      
       const response = await fetch(`http://localhost:8000/api/users/users/${userId}`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers
       })
       if (response.ok) {
         await fetchUsers()
@@ -947,12 +1036,14 @@ const AdminApp: React.FC = () => {
   const createRole = async (roleData: any) => {
     try {
       const token = localStorage.getItem('admin_token')
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+      
       const response = await fetch('http://localhost:8000/api/users/roles', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify(roleData)
       })
       if (response.ok) {
@@ -970,12 +1061,14 @@ const AdminApp: React.FC = () => {
   const updateRolePermissions = async (roleId: number, permissionIds: number[]) => {
     try {
       const token = localStorage.getItem('admin_token')
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+      
       const response = await fetch(`http://localhost:8000/api/users/roles/${roleId}/permissions`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify(permissionIds)
       })
       if (response.ok) {
@@ -996,16 +1089,16 @@ const AdminApp: React.FC = () => {
     // Load current role permissions
     try {
       const token = localStorage.getItem('admin_token')
+      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {}
+      
       const response = await fetch(`http://localhost:8000/api/users/roles/${role.id}/permissions`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers
       })
       
       if (response.ok) {
         const data = await response.json()
-        const permissionsMap = {}
-        data.forEach(permission => {
+        const permissionsMap: Record<string, boolean> = {}
+        data.forEach((permission: any) => {
           permissionsMap[permission.id] = true
         })
         setRolePermissions(permissionsMap)
@@ -1285,7 +1378,7 @@ const AdminApp: React.FC = () => {
   const fetchChatCategories = async () => {
     try {
       const token = localStorage.getItem('admin_token')
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {}
       
       const response = await fetch('http://localhost:8000/admin/chat/categories', {
         headers
@@ -1305,7 +1398,7 @@ const AdminApp: React.FC = () => {
   const fetchCategoryStats = async () => {
     try {
       const token = localStorage.getItem('admin_token')
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {}
       
       const response = await fetch('http://localhost:8000/admin/chat/categories/stats', {
         headers
@@ -1455,7 +1548,7 @@ const AdminApp: React.FC = () => {
   const createCategory = async () => {
     try {
       const token = localStorage.getItem('admin_token')
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {}
       
       const response = await fetch('http://localhost:8000/admin/chat/categories', {
         method: 'POST',
@@ -1487,7 +1580,7 @@ const AdminApp: React.FC = () => {
     
     try {
       const token = localStorage.getItem('admin_token')
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {}
       
       const response = await fetch(`http://localhost:8000/admin/chat/categories/${editingCategory.id}`, {
         method: 'PUT',
@@ -1520,7 +1613,7 @@ const AdminApp: React.FC = () => {
     
     try {
       const token = localStorage.getItem('admin_token')
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {}
       
       const response = await fetch(`http://localhost:8000/admin/chat/categories/${categoryId}`, {
         method: 'DELETE',
@@ -1544,13 +1637,13 @@ const AdminApp: React.FC = () => {
   const toggleCategoryStatus = async (category: ChatCategory) => {
     try {
       const token = localStorage.getItem('admin_token')
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+      const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {}
       
       const response = await fetch(`http://localhost:8000/admin/chat/categories/${category.id}`, {
         method: 'PUT',
         headers: {
-          ...headers,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify({
           name: category.name,
@@ -1567,9 +1660,79 @@ const AdminApp: React.FC = () => {
         const errorData = await response.json()
         alert(`Failed to update category: ${errorData.detail || 'Unknown error'}`)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating category status:', error)
       alert(`Error updating category status: ${error.message}`)
+    }
+  }
+
+  // Role and Permission Management functions
+  const handleModulePermissionClick = (moduleId: string) => {
+    console.log('Opening module permissions for:', moduleId)
+    setSelectedModule(moduleId)
+    setShowModulePermissionsModal(true)
+    
+    // Load existing permissions for this module
+    const modulePerms = modulePermissions[moduleId as keyof typeof modulePermissions] || []
+    const initialState: Record<string, boolean> = {}
+    modulePerms.forEach(perm => {
+      initialState[perm.id] = false // Default to unchecked
+    })
+    setModulePermissionStates(initialState)
+  }
+
+  const handleModulePermissionChange = (permissionId: string, isChecked: boolean) => {
+    setModulePermissionStates(prev => ({
+      ...prev,
+      [permissionId]: isChecked
+    }))
+  }
+
+  const saveModulePermissions = async () => {
+    try {
+      const selectedPermissionNames = Object.keys(modulePermissionStates)
+        .filter(key => modulePermissionStates[key])
+        .map(key => {
+          const modulePerms = modulePermissions[selectedModule as keyof typeof modulePermissions] || []
+          const permission = modulePerms.find(p => p.id === key)
+          return permission?.name
+        })
+        .filter(Boolean)
+
+      console.log('Selected permission names:', selectedPermissionNames)
+
+      // Get all available permissions to convert names to IDs
+      const allPermissionIds: Record<string, number> = {}
+      permissions.forEach(perm => {
+        allPermissionIds[perm.name] = perm.id
+      })
+
+      const selectedPermissionIds = selectedPermissionNames
+        .map(name => allPermissionIds[name])
+        .filter(id => id !== undefined)
+
+      console.log('Selected permission IDs:', selectedPermissionIds)
+      console.log('All permission IDs:', allPermissionIds)
+
+      if (editingRole && selectedPermissionIds.length > 0) {
+        const result = await updateRolePermissions(editingRole.id, selectedPermissionIds)
+        
+        if (result.success) {
+          setShowModulePermissionsModal(false)
+          setSelectedModule('')
+          setModulePermissionStates({})
+          // Refresh roles to get updated data
+          fetchRoles()
+          alert('Module permissions updated successfully!')
+        } else {
+          alert('Error updating permissions: ' + result.error)
+        }
+      } else {
+        alert('Please select at least one permission')
+      }
+    } catch (error: any) {
+      console.error('Error saving module permissions:', error)
+      alert('Error saving permissions. Please try again.')
     }
   }
 
@@ -5467,8 +5630,8 @@ const AdminApp: React.FC = () => {
                   cursor: 'pointer',
                   transition: 'all 0.2s'
                 }}
-                onMouseOver={(e) => e.target.style.transform = 'translateY(-1px)'}
-                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                onMouseOver={(e) => (e.target as HTMLElement).style.transform = 'translateY(-1px)'}
+                onMouseOut={(e) => (e.target as HTMLElement).style.transform = 'translateY(0)'}
               >
                 Login to Admin Panel
               </button>
@@ -5610,8 +5773,8 @@ const AdminApp: React.FC = () => {
                   cursor: 'pointer',
                   transition: 'all 0.2s'
                 }}
-                onMouseOver={(e) => e.target.style.transform = 'translateY(-1px)'}
-                onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                onMouseOver={(e) => (e.target as HTMLElement).style.transform = 'translateY(-1px)'}
+                onMouseOut={(e) => (e.target as HTMLElement).style.transform = 'translateY(0)'}
               >
                 Create Account
               </button>
@@ -6027,14 +6190,14 @@ const AdminApp: React.FC = () => {
                 }}
                 onMouseOver={(e) => {
                   if (activeTab !== tab.id) {
-                    e.target.style.backgroundColor = '#f3f4f6'
-                    e.target.style.color = '#374151'
+                    (e.target as HTMLElement).style.backgroundColor = '#f3f4f6'
+                    (e.target as HTMLElement).style.color = '#374151'
                   }
                 }}
                 onMouseOut={(e) => {
                   if (activeTab !== tab.id) {
-                    e.target.style.backgroundColor = 'transparent'
-                    e.target.style.color = '#6b7280'
+                    (e.target as HTMLElement).style.backgroundColor = 'transparent'
+                    (e.target as HTMLElement).style.color = '#6b7280'
                   }
                 }}
               >
@@ -6320,6 +6483,1384 @@ const AdminApp: React.FC = () => {
                 }}
               >
                 Export FAQs
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Permission Management Modal */}
+      {showPermissionModal && editingRole && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '600px',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>
+              Manage Permissions - {editingRole.name}
+            </h3>
+            
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#f0f9ff',
+              border: '1px solid #0ea5e9',
+              borderRadius: '8px',
+              marginBottom: '20px'
+            }}>
+              <div style={{ fontSize: '14px', fontWeight: '500', color: '#0c4a6e', marginBottom: '4px' }}>
+                Role Description
+              </div>
+              <div style={{ fontSize: '12px', color: '#0c4a6e' }}>
+                {editingRole.description}
+              </div>
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }}>
+                Select the tabs for the <strong>{editingRole.name}</strong> role:
+              </p>
+              
+              {/* Tab Selection Controls */}
+              <div style={{ marginBottom: '20px' }}>
+                <button
+                  onClick={() => {
+                    const allTabs = ['overview', 'analytics', 'faq', 'tickets', 'livechat', 'chatmanagement', 'reports', 'users']
+                    const newPermissions = {}
+                    allTabs.forEach(tabId => {
+                      newPermissions[tabId] = true
+                    })
+                    setRolePermissions(newPermissions)
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    border: '1px solid #3b82f6',
+                    borderRadius: '8px',
+                    backgroundColor: '#3b82f6',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    marginRight: '12px',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  Select All Tabs
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const allTabs = ['overview', 'analytics', 'faq', 'tickets', 'livechat', 'chatmanagement', 'reports', 'users']
+                    const newPermissions = {}
+                    allTabs.forEach(tabId => {
+                      newPermissions[tabId] = false
+                    })
+                    setRolePermissions(newPermissions)
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    border: '1px solid #ef4444',
+                    borderRadius: '8px',
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  Clear All Tabs
+                </button>
+              </div>
+
+              {/* Quick Select by Tab */}
+              <div style={{ marginBottom: '20px' }}>
+                <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>
+                  Quick Select by Tab
+                </h4>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {[
+                    { id: 'overview', name: 'Overview' },
+                    { id: 'analytics', name: 'Analytics' },
+                    { id: 'faq', name: 'FAQ' },
+                    { id: 'tickets', name: 'Tickets' },
+                    { id: 'livechat', name: 'Live Chat' },
+                    { id: 'chatmanagement', name: 'Chat Management' },
+                    { id: 'reports', name: 'Reports' },
+                    { id: 'users', name: 'Users' }
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setRolePermissions(prev => ({
+                          ...prev,
+                          [tab.id]: true
+                        }))
+                      }}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#f0f9ff',
+                        color: '#1e40af',
+                        border: '1px solid #3b82f6',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: '500',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      Select {tab.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Tab-based Permissions */}
+              <div style={{ display: 'grid', gap: '16px' }}>
+                {[
+                  { id: 'overview', name: 'Overview', description: 'Dashboard overview and metrics', icon: '📊' },
+                  { id: 'analytics', name: 'Analytics', description: 'Analytics data and reports', icon: '📈' },
+                  { id: 'faq', name: 'FAQ Management', description: 'FAQ creation and management', icon: '📄' },
+                  { id: 'tickets', name: 'Tickets', description: 'Ticket management system', icon: '🎫' },
+                  { id: 'livechat', name: 'Live Chat', description: 'Live chat monitoring', icon: '💬' },
+                  { id: 'chatmanagement', name: 'Chat Management', description: 'Chat categories and settings', icon: '⚙️' },
+                  { id: 'reports', name: 'Reports', description: 'Report generation and export', icon: '📋' },
+                  { id: 'users', name: 'User Management', description: 'User and role management', icon: '👥' }
+                ].map(tab => {
+                  const tabHasAccess = rolePermissions[tab.id] || false
+                  return (
+                    <div key={tab.id} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '20px',
+                      border: `2px solid ${tabHasAccess ? '#3b82f6' : '#e5e7eb'}`,
+                      borderRadius: '12px',
+                      backgroundColor: tabHasAccess ? '#f8faff' : '#ffffff',
+                      boxShadow: tabHasAccess ? '0 4px 12px rgba(59, 130, 246, 0.15)' : '0 2px 4px rgba(0, 0, 0, 0.05)',
+                      transition: 'all 0.2s ease',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => {
+                      setRolePermissions(prev => ({
+                        ...prev,
+                        [tab.id]: !prev[tab.id]
+                      }))
+                    }}>
+                      <div style={{
+                        width: '24px',
+                        height: '24px',
+                        border: `2px solid ${tabHasAccess ? '#3b82f6' : '#d1d5db'}`,
+                        borderRadius: '6px',
+                        backgroundColor: tabHasAccess ? '#3b82f6' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: '16px',
+                        transition: 'all 0.2s ease'
+                      }}>
+                        {tabHasAccess && (
+                          <div style={{
+                            width: '12px',
+                            height: '8px',
+                            border: '2px solid white',
+                            borderTop: 'none',
+                            borderRight: 'none',
+                            transform: 'rotate(-45deg)',
+                            marginTop: '-2px'
+                          }} />
+                        )}
+                      </div>
+                      
+                      <div style={{ flex: 1 }}>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          marginBottom: '4px'
+                        }}>
+                          <span style={{ fontSize: '20px', marginRight: '8px' }}>
+                            {tab.icon}
+                          </span>
+                          <span style={{
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            color: tabHasAccess ? '#1e40af' : '#374151'
+                          }}>
+                            {tab.name}
+                          </span>
+                        </div>
+                        <div style={{
+                          fontSize: '13px',
+                          color: '#6b7280',
+                          lineHeight: '1.4'
+                        }}>
+                          {tab.description}
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleModulePermissionClick(tab.id)
+                          }}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => {
+                            (e.target as HTMLElement).style.backgroundColor = '#2563eb'
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.target as HTMLElement).style.backgroundColor = '#3b82f6'
+                          }}
+                        >
+                          Manage Details
+                        </button>
+                        <div style={{
+                          padding: '6px 12px',
+                          backgroundColor: tabHasAccess ? '#dcfce7' : '#f3f4f6',
+                          color: tabHasAccess ? '#166534' : '#6b7280',
+                          borderRadius: '20px',
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          border: `1px solid ${tabHasAccess ? '#bbf7d0' : '#e5e7eb'}`
+                        }}>
+                          {tabHasAccess ? 'Access Granted' : 'No Access'}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              
+              {/* Summary */}
+              <div style={{
+                marginTop: '20px',
+                padding: '16px',
+                backgroundColor: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: '10px'
+              }}>
+                <div style={{ fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '6px' }}>
+                  Access Summary
+                </div>
+                <div style={{ fontSize: '13px', color: '#6b7280' }}>
+                  {Object.values(rolePermissions).filter(Boolean).length} of 8 tabs selected for {editingRole.name} role
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <button
+                onClick={() => {
+                  setShowPermissionModal(false)
+                  setEditingRole(null)
+                  setRolePermissions({})
+                }}
+                style={{
+                  padding: '12px 24px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  backgroundColor: 'white',
+                  color: '#6b7280',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const selectedTabs = Object.keys(rolePermissions)
+                    .filter(key => rolePermissions[key])
+                  
+                  // Convert tab IDs to permission IDs for backend
+                  const selectedPermissions = selectedTabs.map(tabId => {
+                    const permissionName = tabPermissions[tabId]
+                    const permission = permissions.find(p => p.name === permissionName)
+                    return permission ? permission.id : null
+                  }).filter(id => id !== null)
+                  
+                  
+                  const result = await updateRolePermissions(editingRole.id, selectedPermissions)
+                  
+                  if (result.success) {
+                    setShowPermissionModal(false)
+                    setEditingRole(null)
+                    setRolePermissions({})
+                    // Refresh roles to get updated data
+                    fetchRoles()
+                  }
+                }}
+                style={{
+                  padding: '12px 24px',
+                  border: 'none',
+                  borderRadius: '8px',
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Save Tab Access
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Role Management Modal */}
+      {showRoleModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '800px',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>
+              Role & Permission Management
+            </h3>
+            
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h4 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>
+                  Available Roles
+                </h4>
+                <button
+                  onClick={() => setShowAddRoleModal(true)}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  ➕ Add New Role
+                </button>
+              </div>
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {roles.map(role => (
+                  <div key={role.id} style={{
+                    padding: '16px',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    backgroundColor: '#f9fafb'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: '600', fontSize: '14px' }}>{role.name}</div>
+                        <div style={{ fontSize: '12px', color: '#6b7280' }}>{role.description}</div>
+                      </div>
+                      <button
+                        onClick={() => handleManagePermissions(role)}
+                        style={{
+                          padding: '8px 16px',
+                          backgroundColor: '#3b82f6',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '12px'
+                        }}
+                      >
+                        Manage Permissions
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowRoleModal(false)}
+                style={{
+                  padding: '12px 24px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '8px',
+                  backgroundColor: 'white',
+                  color: '#374151',
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Role Modal */}
+      {showAddRoleModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '16px',
+            padding: '32px',
+            width: '100%',
+            maxWidth: '600px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
+            {/* Header */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              marginBottom: '24px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #f3f4f6'
+            }}>
+              <div>
+                <h3 style={{ 
+                  fontSize: '24px', 
+                  fontWeight: '700', 
+                  margin: '0 0 4px 0',
+                  color: '#111827'
+                }}>
+                  Add New Role
+                </h3>
+                <p style={{ 
+                  fontSize: '14px', 
+                  color: '#6b7280', 
+                  margin: 0 
+                }}>
+                  Create a new role with specific permissions
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowAddRoleModal(false)
+                  setNewRole({ name: '', description: '', permission_ids: [] })
+                }}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: '#f3f4f6',
+                  color: '#6b7280',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '18px'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            <form onSubmit={async (e) => {
+              e.preventDefault()
+              const result = await createRole(newRole)
+              if (result.success) {
+                setShowAddRoleModal(false)
+                setNewRole({ name: '', description: '', permission_ids: [] })
+                await fetchRoles()
+              } else {
+                alert('Error creating role: ' + result.error)
+              }
+            }}>
+              {/* Role Name */}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '8px', 
+                  fontSize: '16px', 
+                  fontWeight: '600',
+                  color: '#374151'
+                }}>
+                  Role Name <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newRole.name}
+                  onChange={(e) => setNewRole({ ...newRole, name: e.target.value })}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '10px',
+                    fontSize: '16px',
+                    backgroundColor: '#fafafa',
+                    transition: 'all 0.2s ease',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => {
+                    (e.target as HTMLInputElement).style.borderColor = '#3b82f6'
+                    (e.target as HTMLInputElement).style.backgroundColor = 'white'
+                  }}
+                  onBlur={(e) => {
+                    (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'
+                    (e.target as HTMLInputElement).style.backgroundColor = '#fafafa'
+                  }}
+                  placeholder="Enter role name (e.g., Content Manager)"
+                />
+              </div>
+              
+              {/* Description */}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '8px', 
+                  fontSize: '16px', 
+                  fontWeight: '600',
+                  color: '#374151'
+                }}>
+                  Description <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <textarea
+                  value={newRole.description}
+                  onChange={(e) => setNewRole({ ...newRole, description: e.target.value })}
+                  required
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '10px',
+                    fontSize: '16px',
+                    backgroundColor: '#fafafa',
+                    resize: 'vertical',
+                    transition: 'all 0.2s ease',
+                    outline: 'none',
+                    fontFamily: 'inherit'
+                  }}
+                  onFocus={(e) => {
+                    (e.target as HTMLTextAreaElement).style.borderColor = '#3b82f6'
+                    (e.target as HTMLTextAreaElement).style.backgroundColor = 'white'
+                  }}
+                  onBlur={(e) => {
+                    (e.target as HTMLTextAreaElement).style.borderColor = '#e5e7eb'
+                    (e.target as HTMLTextAreaElement).style.backgroundColor = '#fafafa'
+                  }}
+                  placeholder="Describe what this role can do and who should have it..."
+                />
+              </div>
+              
+              {/* Permissions */}
+              <div style={{ marginBottom: '32px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '12px', 
+                  fontSize: '16px', 
+                  fontWeight: '600',
+                  color: '#374151'
+                }}>
+                  Permissions
+                </label>
+                <div style={{ 
+                  backgroundColor: '#f8fafc',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  maxHeight: '300px', 
+                  overflowY: 'auto'
+                }}>
+                  <div style={{ 
+                    display: 'grid', 
+                    gap: '12px',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))'
+                  }}>
+                    {permissions.map(permission => (
+                      <label key={permission.id} style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '12px',
+                        padding: '8px 12px',
+                        backgroundColor: 'white',
+                        borderRadius: '8px',
+                        border: '1px solid #e5e7eb',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f0f9ff'
+                        e.currentTarget.style.borderColor = '#3b82f6'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'white'
+                        e.currentTarget.style.borderColor = '#e5e7eb'
+                      }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={newRole.permission_ids.includes(permission.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setNewRole({
+                                ...newRole,
+                                permission_ids: [...newRole.permission_ids, permission.id]
+                              })
+                            } else {
+                              setNewRole({
+                                ...newRole,
+                                permission_ids: newRole.permission_ids.filter(id => id !== permission.id)
+                              })
+                            }
+                          }}
+                          style={{
+                            width: '16px',
+                            height: '16px',
+                            accentColor: '#3b82f6'
+                          }}
+                        />
+                        <div>
+                          <div style={{ 
+                            fontSize: '14px', 
+                            fontWeight: '600', 
+                            color: '#374151',
+                            marginBottom: '2px'
+                          }}>
+                            {permission.name}
+                          </div>
+                          <div style={{ 
+                            fontSize: '12px', 
+                            color: '#6b7280',
+                            lineHeight: '1.3'
+                          }}>
+                            {permission.description}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div style={{ 
+                display: 'flex', 
+                gap: '16px', 
+                justifyContent: 'flex-end',
+                paddingTop: '16px',
+                borderTop: '2px solid #f3f4f6'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddRoleModal(false)
+                    setNewRole({ name: '', description: '', permission_ids: [] })
+                  }}
+                  style={{
+                    padding: '12px 24px',
+                    border: '2px solid #d1d5db',
+                    borderRadius: '10px',
+                    backgroundColor: 'white',
+                    color: '#6b7280',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.target as HTMLElement).style.backgroundColor = '#f9fafb'
+                    (e.target as HTMLElement).style.borderColor = '#9ca3af'
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.target as HTMLElement).style.backgroundColor = 'white'
+                    (e.target as HTMLElement).style.borderColor = '#d1d5db'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!newRole.name.trim() || !newRole.description.trim()}
+                  style={{
+                    padding: '12px 24px',
+                    border: 'none',
+                    borderRadius: '10px',
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.3)',
+                    opacity: (!newRole.name.trim() || !newRole.description.trim()) ? 0.5 : 1
+                  }}
+                  onMouseEnter={(e) => {
+                    if (newRole.name.trim() && newRole.description.trim()) {
+                      (e.target as HTMLElement).style.backgroundColor = '#059669'
+                      (e.target as HTMLElement).style.transform = 'translateY(-1px)'
+                      (e.target as HTMLElement).style.boxShadow = '0 6px 8px -1px rgba(16, 185, 129, 0.4)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (newRole.name.trim() && newRole.description.trim()) {
+                      (e.target as HTMLElement).style.backgroundColor = '#10b981'
+                      (e.target as HTMLElement).style.transform = 'translateY(0)'
+                      (e.target as HTMLElement).style.boxShadow = '0 4px 6px -1px rgba(16, 185, 129, 0.3)'
+                    }
+                  }}
+                >
+                  ✨ Create Role
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Module Permissions Modal */}
+      {showModulePermissionsModal && selectedModule && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '16px',
+            padding: '32px',
+            width: '100%',
+            maxWidth: '800px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
+            {/* Header */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              marginBottom: '24px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #f3f4f6'
+            }}>
+              <div>
+                <h3 style={{ 
+                  fontSize: '24px', 
+                  fontWeight: '700', 
+                  margin: '0 0 4px 0',
+                  color: '#111827'
+                }}>
+                  Module Permissions
+                </h3>
+                <p style={{ 
+                  fontSize: '14px', 
+                  color: '#6b7280', 
+                  margin: 0 
+                }}>
+                  Configure detailed permissions for {selectedModule} module
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowModulePermissionsModal(false)
+                  setSelectedModule('')
+                }}
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: '#f3f4f6',
+                  color: '#6b7280',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '18px'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Module Description */}
+            <div style={{
+              padding: '16px',
+              backgroundColor: '#f0f9ff',
+              border: '2px solid #0ea5e9',
+              borderRadius: '12px',
+              marginBottom: '24px'
+            }}>
+              <div style={{ fontSize: '16px', fontWeight: '600', color: '#0c4a6e', marginBottom: '8px' }}>
+                Module Overview
+              </div>
+              <div style={{ fontSize: '14px', color: '#0c4a6e', lineHeight: '1.5' }}>
+                {selectedModule === 'overview' && 'Dashboard overview with key metrics and statistics'}
+                {selectedModule === 'analytics' && 'Comprehensive analytics dashboard with reports and data export'}
+                {selectedModule === 'faq' && 'FAQ management system for creating and organizing help articles'}
+                {selectedModule === 'tickets' && 'Support ticket management and resolution system'}
+                {selectedModule === 'livechat' && 'Real-time live chat interface for customer support'}
+                {selectedModule === 'chatmanagement' && 'Chat system configuration and management tools'}
+                {selectedModule === 'reports' && 'Advanced reporting system with custom report generation'}
+                {selectedModule === 'users' && 'User management system with role and permission controls'}
+              </div>
+            </div>
+
+            {/* Permissions List */}
+            <div style={{ marginBottom: '32px' }}>
+              <h4 style={{ 
+                fontSize: '18px', 
+                fontWeight: '600', 
+                marginBottom: '16px',
+                color: '#374151'
+              }}>
+                Available Permissions
+              </h4>
+              
+              <div style={{ 
+                display: 'grid', 
+                gap: '12px',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))'
+              }}>
+                {modulePermissions[selectedModule as keyof typeof modulePermissions]?.map(permission => {
+                  const isChecked = modulePermissionStates[permission.id] || false
+                  return (
+                    <div key={permission.id} style={{
+                      padding: '16px',
+                      border: `2px solid ${isChecked ? '#3b82f6' : '#e5e7eb'}`,
+                      borderRadius: '12px',
+                      backgroundColor: isChecked ? '#f0f9ff' : '#fafafa',
+                      transition: 'all 0.2s ease',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => handleModulePermissionChange(permission.id, !isChecked)}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#3b82f6'
+                      e.currentTarget.style.backgroundColor = '#f0f9ff'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = isChecked ? '#3b82f6' : '#e5e7eb'
+                      e.currentTarget.style.backgroundColor = isChecked ? '#f0f9ff' : '#fafafa'
+                    }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                        <div style={{
+                          width: '20px',
+                          height: '20px',
+                          border: `2px solid ${isChecked ? '#3b82f6' : '#d1d5db'}`,
+                          borderRadius: '4px',
+                          backgroundColor: isChecked ? '#3b82f6' : 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginTop: '2px',
+                          flexShrink: 0,
+                          transition: 'all 0.2s ease'
+                        }}>
+                          {isChecked && (
+                            <div style={{
+                              width: '8px',
+                              height: '6px',
+                              border: '2px solid white',
+                              borderTop: 'none',
+                              borderRight: 'none',
+                              transform: 'rotate(-45deg)',
+                              marginTop: '-1px'
+                            }} />
+                          )}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{
+                            fontSize: '16px',
+                            fontWeight: '600',
+                            color: isChecked ? '#1e40af' : '#111827',
+                            marginBottom: '4px'
+                          }}>
+                            {permission.name}
+                          </div>
+                          <div style={{
+                            fontSize: '14px',
+                            color: '#6b7280',
+                            lineHeight: '1.4'
+                          }}>
+                            {permission.description}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '16px', 
+              justifyContent: 'flex-end',
+              paddingTop: '16px',
+              borderTop: '2px solid #f3f4f6'
+            }}>
+              <button
+                onClick={() => {
+                  setShowModulePermissionsModal(false)
+                  setSelectedModule('')
+                }}
+                style={{
+                  padding: '12px 24px',
+                  border: '2px solid #d1d5db',
+                  borderRadius: '10px',
+                  backgroundColor: 'white',
+                  color: '#6b7280',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  (e.target as HTMLElement).style.backgroundColor = '#f9fafb'
+                  (e.target as HTMLElement).style.borderColor = '#9ca3af'
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLElement).style.backgroundColor = 'white'
+                  (e.target as HTMLElement).style.borderColor = '#d1d5db'
+                }}
+              >
+                Close
+              </button>
+              <button
+                onClick={saveModulePermissions}
+                style={{
+                  padding: '12px 24px',
+                  border: 'none',
+                  borderRadius: '10px',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.3)'
+                }}
+                onMouseEnter={(e) => {
+                  (e.target as HTMLElement).style.backgroundColor = '#059669'
+                  (e.target as HTMLElement).style.transform = 'translateY(-1px)'
+                  (e.target as HTMLElement).style.boxShadow = '0 6px 8px -1px rgba(16, 185, 129, 0.4)'
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLElement).style.backgroundColor = '#10b981'
+                  (e.target as HTMLElement).style.transform = 'translateY(0)'
+                  (e.target as HTMLElement).style.boxShadow = '0 4px 6px -1px rgba(16, 185, 129, 0.3)'
+                }}
+              >
+                ✨ Save Permissions
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Role Management Modal */}
+      {showRoleModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '800px',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>
+              Role & Permission Management
+            </h3>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <button
+                onClick={() => setShowAddRoleModal(true)}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                + Add New Role
+              </button>
+            </div>
+
+            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+              {roles.map((role: any) => (
+                <div key={role.id} style={{
+                  padding: '16px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  marginBottom: '12px',
+                  backgroundColor: '#f9fafb'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <h4 style={{ fontSize: '16px', fontWeight: '600', margin: '0 0 4px 0' }}>
+                        {role.name}
+                      </h4>
+                      <p style={{ fontSize: '14px', color: '#6b7280', margin: '0' }}>
+                        {role.description}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleManagePermissions(role)}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: '500'
+                      }}
+                    >
+                      Manage Details
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <button
+                onClick={() => setShowRoleModal(false)}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Role Modal */}
+      {showAddRoleModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '500px'
+          }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>
+              Add New Role
+            </h3>
+            
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '8px' }}>
+                Role Name
+              </label>
+              <input
+                type="text"
+                value={newRole.name}
+                onChange={(e) => setNewRole({ ...newRole, name: e.target.value })}
+                placeholder="Enter role name"
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '14px'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '8px' }}>
+                Description
+              </label>
+              <textarea
+                value={newRole.description}
+                onChange={(e) => setNewRole({ ...newRole, description: e.target.value })}
+                placeholder="Enter role description"
+                rows={3}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '8px' }}>
+                Permissions
+              </label>
+              <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '8px' }}>
+                {permissions.map((permission: any) => (
+                  <label key={permission.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                    <input
+                      type="checkbox"
+                      checked={newRole.permission_ids.includes(permission.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setNewRole({ ...newRole, permission_ids: [...newRole.permission_ids, permission.id] })
+                        } else {
+                          setNewRole({ ...newRole, permission_ids: newRole.permission_ids.filter((id: any) => id !== permission.id) })
+                        }
+                      }}
+                      style={{ marginRight: '8px' }}
+                    />
+                    <span style={{ fontSize: '14px' }}>{permission.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                onClick={() => {
+                  setShowAddRoleModal(false)
+                  setNewRole({ name: '', description: '', permission_ids: [] })
+                }}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const result = await createRole(newRole)
+                  if (result.success) {
+                    setShowAddRoleModal(false)
+                    setNewRole({ name: '', description: '', permission_ids: [] })
+                    fetchRoles()
+                  }
+                }}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                Create Role
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Module Permissions Modal */}
+      {showModulePermissionsModal && selectedModule && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '600px',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>
+              {selectedModule.charAt(0).toUpperCase() + selectedModule.slice(1)} Module Permissions
+            </h3>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }}>
+                Select the specific permissions for the {selectedModule} module:
+              </p>
+              
+              <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                {modulePermissions[selectedModule as keyof typeof modulePermissions]?.map((permission: any) => (
+                  <label key={permission} style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    marginBottom: '12px',
+                    padding: '8px',
+                    backgroundColor: '#f9fafb',
+                    borderRadius: '6px'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={modulePermissionStates[permission] || false}
+                      onChange={() => handleModulePermissionChange(permission, !modulePermissionStates[permission])}
+                      style={{ marginRight: '12px' }}
+                    />
+                    <span style={{ fontSize: '14px', fontWeight: '500' }}>
+                      {permission.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                onClick={() => {
+                  setShowModulePermissionsModal(false)
+                  setSelectedModule('')
+                  setModulePermissionStates({})
+                }}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await saveModulePermissions()
+                  setShowModulePermissionsModal(false)
+                  setSelectedModule('')
+                  setModulePermissionStates({})
+                }}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  (e.target as HTMLElement).style.backgroundColor = '#059669'
+                  (e.target as HTMLElement).style.transform = 'translateY(-1px)'
+                  (e.target as HTMLElement).style.boxShadow = '0 6px 8px -1px rgba(16, 185, 129, 0.4)'
+                }}
+                onMouseLeave={(e) => {
+                  (e.target as HTMLElement).style.backgroundColor = '#10b981'
+                  (e.target as HTMLElement).style.transform = 'translateY(0)'
+                  (e.target as HTMLElement).style.boxShadow = '0 4px 6px -1px rgba(16, 185, 129, 0.3)'
+                }}
+              >
+                ✨ Save Permissions
               </button>
             </div>
           </div>
