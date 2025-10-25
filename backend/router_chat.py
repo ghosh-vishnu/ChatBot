@@ -3,8 +3,7 @@ from __future__ import annotations
 from typing import List
 from fastapi import APIRouter
 from schemas import ChatRequest, ChatResponse
-import json
-import os
+from faq_database import faq_db
 
 router = APIRouter()
 
@@ -14,93 +13,6 @@ CHAT_MODEL = "gpt-3.5-turbo"
 TOP_K = 5
 MAX_CONTEXT_CHARS = 2000
 
-def load_faqs():
-    """Load FAQs from JSON file (same as admin dashboard)"""
-    try:
-        faqs_file = "data/faqs.json"
-        if os.path.exists(faqs_file):
-            with open(faqs_file, 'r') as f:
-                return json.load(f)
-        return []
-    except Exception as e:
-        print(f"Error loading FAQs: {e}")
-        return []
-
-def save_faqs(faqs: list):
-    """Save FAQs to JSON file"""
-    try:
-        os.makedirs("data", exist_ok=True)
-        faqs_file = "data/faqs.json"
-        with open(faqs_file, 'w') as f:
-            json.dump(faqs, f, indent=2)
-    except Exception as e:
-        print(f"Error saving FAQs: {e}")
-
-def find_matching_faq(query: str, faqs: list) -> dict:
-    """Find matching FAQ using improved keyword matching"""
-    query_lower = query.lower().strip()
-    
-    # Remove common words that don't add meaning
-    stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'do', 'does', 'did', 'are', 'is', 'was', 'were', 'have', 'has', 'had', 'will', 'would', 'could', 'should', 'can', 'may', 'might', 'must', 'shall'}
-    
-    # Extract meaningful keywords from query
-    query_words = [word for word in query_lower.split() if word not in stop_words and len(word) > 2]
-    
-    best_match = None
-    best_score = 0
-    
-    for faq in faqs:
-        question_lower = faq.get('question', '').lower()
-        answer_lower = faq.get('answer', '').lower()
-        
-        # Extract meaningful keywords from FAQ question
-        question_words = [word for word in question_lower.split() if word not in stop_words and len(word) > 2]
-        
-        # Calculate match score
-        score = 0
-        
-        # Exact phrase match (highest priority)
-        if query_lower in question_lower:
-            score += 100
-        
-        # Word-by-word matching
-        for query_word in query_words:
-            if query_word in question_words:
-                score += 10
-            elif query_word in answer_lower:
-                score += 5
-        
-        # Partial word matching for technical terms
-        for query_word in query_words:
-            for question_word in question_words:
-                if query_word in question_word or question_word in query_word:
-                    score += 3
-        
-        # Check for semantic matches
-        semantic_matches = {
-            'services': ['service', 'offer', 'provide', 'deliver', 'solution'],
-            'support': ['help', 'assist', 'maintenance', 'support', 'service'],
-            'pricing': ['price', 'cost', 'rate', 'fee', 'budget'],
-            'contact': ['reach', 'call', 'email', 'connect', 'get in touch'],
-            'technology': ['tech', 'stack', 'framework', 'platform', 'tool']
-        }
-        
-        for category, synonyms in semantic_matches.items():
-            if any(word in query_words for word in [category] + synonyms):
-                if any(word in question_words for word in [category] + synonyms):
-                    score += 15
-        
-        # Update best match
-        if score > best_score:
-            best_score = score
-            best_match = faq
-    
-    # Only return match if score is above threshold
-    if best_score >= 5:
-        print(f"FAQ Match: '{best_match['question']}' (Score: {best_score})")
-        return best_match
-    
-    return None
 
 def _generate_unknown_question_response(query: str, analysis: dict) -> str:
     """Generate response for unknown questions"""
@@ -116,7 +28,7 @@ Would you like me to help you with any of these options?"""
 async def get_faq_suggestions(limit: int = 6):
     """Get FAQ suggestions for the chat widget"""
     try:
-        faqs = load_faqs()
+        faqs = faq_db.get_all_faqs()
         
         # Get random FAQs up to the limit
         import random
@@ -144,14 +56,21 @@ async def chat(req: ChatRequest):
     # Generate user ID for conversation tracking
     user_id = "anonymous_user"
     
-    # Load FAQs
-    faqs = load_faqs()
+    # Load FAQs from database
+    faqs = faq_db.get_all_faqs()
     
     # Step 0: Check for greetings first (before FAQ check)
     greeting_words = ["hi", "hello", "hey", "good morning", "good afternoon", "good evening", "namaste", "namaskar"]
     query_lower = req.query.lower().strip()
     
-    if any(greeting in query_lower for greeting in greeting_words):
+    # Check for exact greeting words (not substrings)
+    is_greeting = False
+    for greeting in greeting_words:
+        if query_lower == greeting or query_lower.startswith(greeting + " ") or query_lower.endswith(" " + greeting):
+            is_greeting = True
+            break
+    
+    if is_greeting:
         print(f"Detected greeting: '{req.query}'")
         # Get conversation context
         from conversation_memory import conversation_memory
@@ -189,55 +108,68 @@ async def chat(req: ChatRequest):
     faq_response = None
     try:
         print(f"Checking FAQs for: '{req.query}'")
-        matching_faq = find_matching_faq(req.query, faqs)
+        matching_faq = faq_db.find_matching_faq(req.query)
         
         if matching_faq:
             print(f"Found matching FAQ: {matching_faq['question']}")
-            # Update views count in JSON file
-            matching_faq["views"] = matching_faq.get("views", 0) + 1
-            save_faqs(faqs)
+            # Update views count in database
+            faq_db.increment_views(matching_faq['id'])
             
             # Return the FAQ answer
             category_name = matching_faq.get("customCategory") if matching_faq.get("category") == "Custom" else matching_faq.get("category", "General")
             
+            # Get database-based suggestions
+            from suggestion_engine import suggestion_engine
+            db_suggestions = suggestion_engine.get_database_faq_suggestions(limit=4)
+            
             return ChatResponse(
                 answer=matching_faq['answer'],
                 sources=[f"FAQ - {category_name}"],
-                suggestions=[]
+                suggestions=db_suggestions
             )
         else:
             print(f"No FAQ match found for: '{req.query}'")
+            # Get database-based suggestions for no match case
+            from suggestion_engine import suggestion_engine
+            db_suggestions = suggestion_engine.get_database_faq_suggestions(limit=3)
+            
+            # Add action suggestions
+            action_suggestions = [
+                {
+                    "text": "Chat Now",
+                    "type": "action",
+                    "category": "live_chat",
+                    "action": "start_live_chat"
+                },
+                {
+                    "text": "Create Support Ticket",
+                    "type": "action",
+                    "category": "ticket",
+                    "action": "create_ticket"
+                },
+                {
+                    "text": "Contact Our Team",
+                    "type": "action", 
+                    "category": "contact",
+                    "action": "contact"
+                }
+            ]
+            
+            # Combine database FAQs with action suggestions
+            all_suggestions = db_suggestions + action_suggestions
+            
             # If no FAQ match, offer both ticket creation and live chat
             return ChatResponse(
                 answer=f"""I couldn't find specific information about "{req.query}" in my knowledge base.
 
 I can help you in two ways:
 
-1. **Create a Support Ticket** - Our team will respond within 24 hours
-2. **Chat Now** - Get immediate help from our support team (if available)
+1. Create a Support Ticket - Our team will respond within 24 hours
+2. Chat Now - Get immediate help from our support team (if available)
 
 Which option would you prefer?""",
                 sources=["Support System"],
-                suggestions=[
-                    {
-                        "text": "Chat Now",
-                        "type": "action",
-                        "category": "live_chat",
-                        "action": "start_live_chat"
-                    },
-                    {
-                        "text": "Create Support Ticket",
-                        "type": "action",
-                        "category": "ticket",
-                        "action": "create_ticket"
-                    },
-                    {
-                        "text": "Contact Our Team",
-                        "type": "action", 
-                        "category": "contact",
-                        "action": "contact"
-                    }
-                ]
+                suggestions=all_suggestions
             )
     except Exception as e:
         print(f"FAQ check error: {e}")

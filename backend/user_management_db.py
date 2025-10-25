@@ -27,6 +27,7 @@ class UserManagementDB:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_login TIMESTAMP,
+                profile_image TEXT,
                 FOREIGN KEY (role_id) REFERENCES roles (id)
             )
         ''')
@@ -100,7 +101,8 @@ class UserManagementDB:
         roles = [
             ("Super Admin", "Full access to all modules and settings", 1),
             ("Manager", "Access to analytics and reports", 0),
-            ("Support", "Access to tickets and FAQ management", 0)
+            ("Support", "Access to tickets and FAQ management", 0),
+            ("Analyst", "Access to analytics and reporting features", 0)
         ]
 
         for role_name, description, is_system in roles:
@@ -141,7 +143,39 @@ class UserManagementDB:
             
             # System permissions
             ("system_settings", "System", "Access system settings"),
-            ("system_logs", "System", "View system logs")
+            ("system_logs", "System", "View system logs"),
+            
+            # Live Chat permissions
+            ("livechat_view", "Live Chat", "View live chat sessions"),
+            ("livechat_manage", "Live Chat", "Manage live chat sessions"),
+            ("livechat_accept", "Live Chat", "Accept chat requests"),
+            ("livechat_reject", "Live Chat", "Reject chat requests"),
+            ("livechat_end", "Live Chat", "End chat sessions"),
+            ("livechat_monitor", "Live Chat", "Monitor chat activity"),
+            
+            # Analytics permissions
+            ("analytics_view", "Analytics", "View analytics dashboard"),
+            ("analytics_export", "Analytics", "Export analytics data"),
+            ("analytics_realtime", "Analytics", "View real-time analytics"),
+            ("analytics_reports", "Analytics", "Generate analytics reports"),
+            
+            # Overview permissions
+            ("overview_dashboard", "Overview", "Access main dashboard"),
+            ("overview_stats", "Overview", "View dashboard statistics"),
+            ("overview_metrics", "Overview", "View key metrics"),
+            ("overview_health", "Overview", "View system health"),
+            
+            # Notifications permissions
+            ("notifications_view", "Notifications", "View notifications"),
+            ("notifications_manage", "Notifications", "Manage notifications"),
+            ("notifications_send", "Notifications", "Send notifications"),
+            
+            # Content Management permissions
+            ("content_view", "Content Management", "View content"),
+            ("content_create", "Content Management", "Create content"),
+            ("content_edit", "Content Management", "Edit content"),
+            ("content_delete", "Content Management", "Delete content"),
+            ("content_publish", "Content Management", "Publish content")
         ]
 
         for perm_name, module, description in permissions:
@@ -153,8 +187,31 @@ class UserManagementDB:
         # Assign permissions to roles
         role_permissions = {
             "Super Admin": [perm[0] for perm in permissions],  # All permissions
-            "Manager": ["dashboard_view", "dashboard_analytics", "faq_view", "ticket_view", "reports_view", "reports_export"],
-            "Support": ["dashboard_view", "faq_view", "faq_create", "faq_edit", "ticket_view", "ticket_assign", "ticket_resolve"]
+            "Manager": [
+                "dashboard_view", "dashboard_analytics", "overview_dashboard", "overview_stats", "overview_metrics",
+                "analytics_view", "analytics_export", "analytics_realtime", "analytics_reports",
+                "faq_view", "faq_create", "faq_edit", "faq_import_export",
+                "ticket_view", "ticket_assign", "ticket_resolve",
+                "reports_view", "reports_export",
+                "livechat_view", "livechat_monitor",
+                "notifications_view", "notifications_manage",
+                "content_view", "content_create", "content_edit", "content_publish"
+            ],
+            "Support": [
+                "dashboard_view", "overview_dashboard", "overview_stats",
+                "faq_view", "faq_create", "faq_edit",
+                "ticket_view", "ticket_assign", "ticket_resolve",
+                "livechat_view", "livechat_manage", "livechat_accept", "livechat_reject", "livechat_end", "livechat_monitor",
+                "notifications_view",
+                "content_view"
+            ],
+            "Analyst": [
+                "dashboard_view", "overview_dashboard", "overview_stats", "overview_metrics",
+                "analytics_view", "analytics_export", "analytics_realtime", "analytics_reports",
+                "reports_view", "reports_export",
+                "livechat_view", "livechat_monitor",
+                "notifications_view"
+            ]
         }
 
         for role_name, perm_names in role_permissions.items():

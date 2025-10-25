@@ -86,7 +86,7 @@ Venturing Digitally is a comprehensive AI-powered chatbot solution designed to r
 │  │  │   (ChromaDB)    │    │   (JSON Data)   │    │   SERVICES      │
 │  │  │                 │    │                 │    │                 │
 │  │  │ • Vector Store  │    │ • FAQ Data      │    │ • OpenAI API    │
-│  │  │ • Embeddings    │    │ • Company Data  │    │ • Web Scraping  │
+│  │  │ • Embeddings    │    │ • Company Data  │    │ • Data Processing │
 │  │  │ • Similarity    │    │ • Config Files  │    │ • Analytics     │
 │  │  └─────────────────┘    └─────────────────┘    └─────────────────┘
 │  └─────────────────────────────────────────────────────────────────┘
@@ -158,11 +158,8 @@ Venturing-Digitally-Project/
 │   ├── 📄 suggestion_engine.py           # Typing suggestions
 │   ├── 📄 ingest.py                      # Data ingestion script
 │   └── 📄 requirements.txt               # Python dependencies
-├── 📁 data/                              # Data Storage
-│   ├── 📄 faq_data.json                  # FAQ database
-│   └── 📄 venturing_digitally_data.json  # Company information
-├── 📁 scraper/                           # Web Scraping Tools
-│   └── 📄 config.py                      # Scraper configuration
+# Removed unused data folder
+# Removed unused scraper directory
 ├── 📄 README.md                          # Main project documentation
 ├── 📄 PROJECT_DOCUMENTATION.md           # Detailed documentation
 ├── 📄 TECHNICAL_SETUP.md                 # Technical setup guide

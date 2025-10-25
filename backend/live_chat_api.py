@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import asyncio
 from datetime import datetime, timedelta
 from typing import List, Optional
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Depends
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Depends, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from auth_router import verify_token
 
@@ -17,6 +19,7 @@ class ChatRequestCreate(BaseModel):
     user_name: Optional[str] = None
     user_email: Optional[str] = None
     category_id: int
+    subcategory_id: Optional[int] = None
     message: Optional[str] = None
 
 class FeedbackCreate(BaseModel):
@@ -61,6 +64,104 @@ def get_db_connection():
     conn = sqlite3.connect('venturing.db', check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
+
+def save_message_to_json(session_id: int, sender_type: str, sender_id: str, message: str, message_type: str = "text"):
+    """Save message to database in JSON format"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Check if session already has messages
+    cursor.execute("""
+        SELECT messages_json, message_count FROM chat_messages 
+        WHERE session_id = ?
+    """, (session_id,))
+    
+    existing = cursor.fetchone()
+    
+    if existing:
+        # Update existing session
+        messages_data = json.loads(existing[0])
+        messages_data.append({
+            "sender_type": sender_type,
+            "sender_id": sender_id,
+            "message": message,
+            "message_type": message_type,
+            "created_at": datetime.now().isoformat()
+        })
+        
+        cursor.execute("""
+            UPDATE chat_messages 
+            SET messages_json = ?, message_count = ?, last_message = ?, 
+                last_sender = ?, updated_at = ?
+            WHERE session_id = ?
+        """, (
+            json.dumps(messages_data),
+            len(messages_data),
+            message,
+            sender_type,
+            datetime.now().isoformat(),
+            session_id
+        ))
+    else:
+        # Create new session
+        messages_data = [{
+            "sender_type": sender_type,
+            "sender_id": sender_id,
+            "message": message,
+            "message_type": message_type,
+            "created_at": datetime.now().isoformat()
+        }]
+        
+        cursor.execute("""
+            INSERT INTO chat_messages 
+            (session_id, messages_json, message_count, last_message, last_sender, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            session_id,
+            json.dumps(messages_data),
+            1,
+            message,
+            sender_type,
+            datetime.now().isoformat(),
+            datetime.now().isoformat()
+        ))
+    
+    conn.commit()
+    conn.close()
+
+async def timeout_chat_request(request_id: int, user_id: str):
+    """Timeout a chat request after 120 seconds (2 minutes) if not accepted"""
+    await asyncio.sleep(120)  # Wait 120 seconds (2 minutes)
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Check if request is still pending
+    cursor.execute("SELECT status FROM chat_requests WHERE id = ?", (request_id,))
+    result = cursor.fetchone()
+    
+    if result and result['status'] == 'pending':
+        # Timeout the request
+        cursor.execute("""
+            UPDATE chat_requests 
+            SET status = 'timeout', 
+                rejected_at = CURRENT_TIMESTAMP,
+                rejection_reason = 'Request timed out - no support agent available'
+            WHERE id = ?
+        """, (request_id,))
+        conn.commit()
+        
+        # Notify user about timeout
+        timeout_message = {
+            "type": "request_timeout",
+            "data": {
+                "message": "Your chat request has timed out as no support agent was available. We apologize for the inconvenience. Please try again later or create a support ticket for immediate assistance.",
+                "request_id": request_id
+            }
+        }
+        await manager.send_to_user(user_id, json.dumps(timeout_message))
+    
+    conn.close()
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -130,8 +231,34 @@ async def get_chat_categories():
     
     return {"categories": categories}
 
+@router.get("/subcategories/{category_id}")
+async def get_subcategories_by_category(category_id: int):
+    """Get subcategories for a specific category (public endpoint)"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT id, category_id, name, description, is_active
+        FROM chat_subcategories 
+        WHERE category_id = ? AND is_active = 1
+        ORDER BY name
+    """, (category_id,))
+    
+    subcategories = []
+    for row in cursor.fetchall():
+        subcategories.append({
+            "id": row["id"],
+            "category_id": row["category_id"],
+            "name": row["name"],
+            "description": row["description"],
+            "is_active": bool(row["is_active"])
+        })
+    
+    conn.close()
+    return subcategories
+
 @router.post("/request")
-async def create_chat_request(request: ChatRequestCreate):
+async def create_chat_request(request: ChatRequestCreate, background_tasks: BackgroundTasks):
     """Create a new chat request"""
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -141,13 +268,14 @@ async def create_chat_request(request: ChatRequestCreate):
     
     # Insert chat request
     cursor.execute("""
-        INSERT INTO chat_requests (user_id, user_name, user_email, category_id, message, expires_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO chat_requests (user_id, user_name, user_email, category_id, subcategory_id, message, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (
         user_id,
         request.user_name,
         request.user_email,
         request.category_id,
+        request.subcategory_id,
         request.message,
         (datetime.now() + timedelta(minutes=10)).isoformat()
     ))
@@ -159,6 +287,13 @@ async def create_chat_request(request: ChatRequestCreate):
     category_result = cursor.fetchone()
     category_name = category_result["name"] if category_result else "Unknown Category"
     
+    # Get subcategory name if provided
+    subcategory_name = None
+    if request.subcategory_id:
+        cursor.execute("SELECT name FROM chat_subcategories WHERE id = ?", (request.subcategory_id,))
+        subcategory_result = cursor.fetchone()
+        subcategory_name = subcategory_result["name"] if subcategory_result else None
+    
     conn.commit()
     conn.close()
     
@@ -169,6 +304,7 @@ async def create_chat_request(request: ChatRequestCreate):
             "request_id": request_id,
             "user_name": request.user_name or "Anonymous",
             "category_name": category_name,
+            "subcategory_name": subcategory_name,
             "message": request.message or "No message provided",
             "created_at": datetime.now().isoformat()
         }
@@ -220,10 +356,15 @@ async def create_chat_request(request: ChatRequestCreate):
         # Continue without notification if it fails
         pass
     
+    # Start timeout task
+    background_tasks.add_task(timeout_chat_request, request_id, user_id)
+    
     return {
         "success": True,
         "request_id": request_id,
         "user_id": user_id,
+        "category_name": category_name,
+        "subcategory_name": subcategory_name,
         "message": "Chat request created successfully. Waiting for support agent..."
     }
 
@@ -238,9 +379,10 @@ async def get_chat_requests(credentials: HTTPAuthorizationCredentials = Depends(
     cursor = conn.cursor()
     
     cursor.execute("""
-        SELECT cr.*, cc.name as category_name
+        SELECT cr.*, cc.name as category_name, cs.name as subcategory_name
         FROM chat_requests cr
         JOIN chat_categories cc ON cr.category_id = cc.id
+        LEFT JOIN chat_subcategories cs ON cr.subcategory_id = cs.id
         WHERE cr.status = 'pending' AND cr.expires_at > datetime('now')
         ORDER BY cr.created_at ASC
     """)
@@ -252,6 +394,7 @@ async def get_chat_requests(credentials: HTTPAuthorizationCredentials = Depends(
             "user_name": row["user_name"] or "Anonymous",
             "user_email": row["user_email"],
             "category_name": row["category_name"],
+            "subcategory_name": row["subcategory_name"],
             "message": row["message"],
             "created_at": row["created_at"],
             "expires_at": row["expires_at"]
@@ -292,11 +435,11 @@ async def accept_chat_request(request_id: int, credentials: HTTPAuthorizationCre
         WHERE id = ?
     """, (user_id, datetime.now().isoformat(), request_id))
     
-    # Create chat session with proper support user ID
+    # Create chat session with proper support user ID and local time
     # user_id is the actual logged-in support agent's ID
     cursor.execute("""
-        INSERT INTO chat_sessions (request_id, user_id, support_user_id)
-        VALUES (?, ?, ?)
+        INSERT INTO chat_sessions (request_id, user_id, support_user_id, started_at_local)
+        VALUES (?, ?, ?, datetime('now', 'localtime'))
     """, (request_id, request["user_id"], user_id))
     
     session_id = cursor.lastrowid
@@ -326,6 +469,62 @@ async def accept_chat_request(request_id: int, credentials: HTTPAuthorizationCre
         "user_id": request["user_id"],
         "support_user_id": user_id,
         "message": "Chat request accepted successfully"
+    }
+
+@router.post("/request/cancel")
+async def cancel_chat_request(request_data: dict):
+    """Cancel a chat request by user"""
+    user_id = request_data.get("user_id")
+    request_id = request_data.get("request_id")
+    
+    if not user_id or not request_id:
+        raise HTTPException(status_code=400, detail="user_id and request_id are required")
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Check if request exists and belongs to user
+    cursor.execute("""
+        SELECT id, status FROM chat_requests 
+        WHERE id = ? AND user_id = ?
+    """, (request_id, user_id))
+    
+    request = cursor.fetchone()
+    if not request:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    if request['status'] != 'pending':
+        conn.close()
+        raise HTTPException(status_code=400, detail="Request cannot be canceled")
+    
+    # Update request status to canceled
+    cursor.execute("""
+        UPDATE chat_requests 
+        SET status = 'canceled', 
+            rejected_at = CURRENT_TIMESTAMP,
+            rejection_reason = 'Canceled by user'
+        WHERE id = ?
+    """, (request_id,))
+    
+    conn.commit()
+    conn.close()
+    
+    # Notify admin about cancellation
+    cancellation_message = {
+        "type": "request_canceled",
+        "data": {
+            "request_id": request_id,
+            "user_id": user_id,
+            "message": "Chat request has been canceled by user"
+        }
+    }
+    
+    await manager.broadcast_to_support(json.dumps(cancellation_message))
+    
+    return {
+        "success": True,
+        "message": "Request canceled successfully"
     }
 
 @router.post("/requests/{request_id}/reject")
@@ -362,7 +561,7 @@ async def reject_chat_request(request_id: int, credentials: HTTPAuthorizationCre
     await manager.send_to_user(request["user_id"], json.dumps({
         "type": "chat_rejected",
         "data": {
-            "message": "Currently no support available. Please raise a ticket or try again later."
+            "message": "We're currently experiencing high demand and all our support agents are busy. Don't worry! You can create a support ticket and we'll get back to you as soon as possible, or try again in a few minutes."
         }
     }))
     
@@ -395,7 +594,7 @@ async def end_chat_session(session_id: int, credentials: HTTPAuthorizationCreden
     # Update session status to ended
     cursor.execute("""
         UPDATE chat_sessions 
-        SET status = 'ended', ended_at = datetime('now')
+        SET status = 'ended', ended_at = datetime('now', 'localtime'), ended_at_local = datetime('now', 'localtime')
         WHERE id = ?
     """, (session_id,))
     
@@ -425,7 +624,10 @@ async def get_chat_sessions(credentials: HTTPAuthorizationCredentials = Depends(
     cursor = conn.cursor()
     
     cursor.execute("""
-        SELECT cs.*, cr.user_name, cr.user_email, cc.name as category_name
+        SELECT cs.id, cs.request_id, cs.user_id, cs.support_user_id, cs.status,
+               COALESCE(cs.started_at_local, datetime(cs.started_at, 'localtime')) as started_at,
+               COALESCE(cs.ended_at_local, datetime(cs.ended_at, 'localtime')) as ended_at,
+               cr.user_name, cr.user_email, cc.name as category_name
         FROM chat_sessions cs
         JOIN chat_requests cr ON cs.request_id = cr.id
         JOIN chat_categories cc ON cr.category_id = cc.id
@@ -474,19 +676,36 @@ async def get_all_sessions(credentials: HTTPAuthorizationCredentials = Depends(s
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    # Get current user's name for dynamic support name
+    current_user_name = user.get("full_name") or user.get("username") or "Support Agent"
+    
     cursor.execute("""
-        SELECT cs.id, cs.request_id, cs.user_id, cs.support_user_id, cs.status, cs.started_at, cs.ended_at,
-               cr.user_name, cr.user_email, cc.name as category_name,
-               COALESCE(u.full_name, u.username, 'Support Agent') as support_name
+        SELECT cs.id, cs.request_id, cs.user_id, cs.support_user_id, cs.status, 
+               COALESCE(cs.started_at_local, datetime(cs.started_at, 'localtime')) as started_at,
+               COALESCE(cs.ended_at_local, datetime(cs.ended_at, 'localtime')) as ended_at,
+               cr.user_name, cr.user_email, cc.name as category_name, cs_sub.name as subcategory_name
         FROM chat_sessions cs
         JOIN chat_requests cr ON cs.request_id = cr.id
         JOIN chat_categories cc ON cr.category_id = cc.id
-        LEFT JOIN users u ON cs.support_user_id = u.id
+        LEFT JOIN chat_subcategories cs_sub ON cr.subcategory_id = cs_sub.id
         ORDER BY cs.started_at DESC
     """)
     
     sessions = []
     for row in cursor.fetchall():
+        # Get support name from user_management.db
+        support_name = current_user_name  # Default to current user
+        
+        # Try to get support name from user_management.db
+        try:
+            from user_management_db import user_db
+            support_user = user_db.get_user_by_id(row[3])  # row[3] is support_user_id
+            if support_user:
+                support_name = support_user.get("full_name") or support_user.get("username") or current_user_name
+        except:
+            # If user_management.db fails, use current user name
+            support_name = current_user_name
+        
         sessions.append({
             "id": row[0],
             "request_id": row[1],
@@ -494,7 +713,8 @@ async def get_all_sessions(credentials: HTTPAuthorizationCredentials = Depends(s
             "user_name": row[7] or "Anonymous",
             "user_email": row[8],
             "category_name": row[9],
-            "support_name": row[10] or "Unassigned",
+            "subcategory_name": row[10],
+            "support_name": support_name,
             "status": row[4],
             "started_at": row[5],
             "ended_at": row[6]
@@ -514,9 +734,10 @@ async def get_rejected_requests(credentials: HTTPAuthorizationCredentials = Depe
     cursor = conn.cursor()
     
     cursor.execute("""
-        SELECT cr.*, cc.name as category_name, u.username as rejected_by
+        SELECT cr.*, cc.name as category_name, cs.name as subcategory_name, u.username as rejected_by
         FROM chat_requests cr
         JOIN chat_categories cc ON cr.category_id = cc.id
+        LEFT JOIN chat_subcategories cs ON cr.subcategory_id = cs.id
         LEFT JOIN users u ON cr.rejected_by = u.id
         WHERE cr.status = 'rejected'
         ORDER BY cr.created_at DESC
@@ -529,6 +750,7 @@ async def get_rejected_requests(credentials: HTTPAuthorizationCredentials = Depe
             "user_name": row["user_name"] or "Anonymous",
             "user_email": row["user_email"],
             "category_name": row["category_name"],
+            "subcategory_name": row["subcategory_name"],
             "message": row["message"],
             "rejected_by": row["rejected_by"] or "System",
             "rejection_reason": row["rejection_reason"],
@@ -545,27 +767,36 @@ async def get_chat_messages_public(session_id: int):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Get messages for this session
+    # Get messages for this session in JSON format
     cursor.execute("""
-        SELECT * FROM chat_messages 
-        WHERE session_id = ? 
-        ORDER BY created_at ASC
+        SELECT messages_json, message_count, last_message, last_sender, created_at, updated_at
+        FROM chat_messages 
+        WHERE session_id = ?
     """, (session_id,))
     
+    result = cursor.fetchone()
+    conn.close()
+    
+    if not result:
+        return {"messages": []}
+    
+    # Parse JSON messages
+    messages_data = json.loads(result[0])
+    
+    # Convert to expected format
     messages = []
-    for row in cursor.fetchall():
+    for i, msg in enumerate(messages_data):
         messages.append({
-            "id": row[0],
-            "session_id": row[1],
-            "sender_type": row[2],
-            "sender_id": row[3],
-            "message": row[4],
-            "message_type": row[5],
-            "is_read": bool(row[6]),
-            "created_at": row[7]
+            "id": i + 1,
+            "session_id": session_id,
+            "sender_type": msg["sender_type"],
+            "sender_id": msg["sender_id"],
+            "message": msg["message"],
+            "message_type": msg.get("message_type", "text"),
+            "is_read": False,  # Default for JSON format
+            "created_at": msg["created_at"]
         })
     
-    conn.close()
     return {"messages": messages}
 
 @router.get("/sessions/{session_id}/messages")
@@ -588,27 +819,117 @@ async def get_chat_messages(session_id: int, credentials: HTTPAuthorizationCrede
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    # Get messages
+    # Get messages in JSON format
     cursor.execute("""
-        SELECT * FROM chat_messages 
-        WHERE session_id = ? 
-        ORDER BY created_at ASC
+        SELECT messages_json, message_count, last_message, last_sender, created_at, updated_at
+        FROM chat_messages 
+        WHERE session_id = ?
     """, (session_id,))
     
-    messages = []
-    for row in cursor.fetchall():
-        messages.append({
-            "id": row["id"],
-            "sender_type": row["sender_type"],
-            "sender_id": row["sender_id"],
-            "message": row["message"],
-            "message_type": row["message_type"],
-            "is_read": bool(row["is_read"]),
-            "created_at": row["created_at"]
-        })
+    result = cursor.fetchone()
+    
+    if not result:
+        messages = []
+    else:
+        # Parse JSON messages
+        messages_data = json.loads(result[0])
+        
+        # Convert to expected format
+        messages = []
+        for i, msg in enumerate(messages_data):
+            messages.append({
+                "id": i + 1,
+                "sender_type": msg["sender_type"],
+                "sender_id": msg["sender_id"],
+                "message": msg["message"],
+                "message_type": msg.get("message_type", "text"),
+                "is_read": False,  # Default for JSON format
+                "created_at": msg["created_at"]
+            })
     
     conn.close()
     return {"messages": messages}
+
+# Admin endpoints
+@router.get("/admin/notifications")
+async def get_admin_notifications(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get admin notifications"""
+    # Verify token and get user
+    user_response = await verify_token(credentials)
+    user = user_response["user"]
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT id, title, message, type, related_id, is_read, created_at
+        FROM notifications 
+        ORDER BY created_at DESC 
+        LIMIT 50
+    """)
+    
+    notifications = []
+    for row in cursor.fetchall():
+        notifications.append({
+            "id": row[0],
+            "title": row[1],
+            "message": row[2],
+            "type": row[3],
+            "related_id": row[4],
+            "is_read": bool(row[5]),
+            "created_at": row[6]
+        })
+    
+    conn.close()
+    return {"notifications": notifications}
+
+@router.get("/admin/notifications/count")
+async def get_admin_notifications_count(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get unread notifications count"""
+    # Verify token and get user
+    user_response = await verify_token(credentials)
+    user = user_response["user"]
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT COUNT(*) FROM notifications WHERE is_read = 0")
+    count = cursor.fetchone()[0]
+    
+    conn.close()
+    return {"unread_count": count}
+
+@router.get("/admin/tickets")
+async def get_admin_tickets(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get admin tickets"""
+    # Verify token and get user
+    user_response = await verify_token(credentials)
+    user = user_response["user"]
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT id, title, description, status, priority, created_at, updated_at
+        FROM tickets 
+        ORDER BY created_at DESC 
+        LIMIT 50
+    """)
+    
+    tickets = []
+    for row in cursor.fetchall():
+        tickets.append({
+            "id": row[0],
+            "title": row[1],
+            "description": row[2],
+            "status": row[3],
+            "priority": row[4],
+            "created_at": row[5],
+            "updated_at": row[6]
+        })
+    
+    conn.close()
+    return {"tickets": tickets}
 
 # WebSocket endpoint for real-time chat
 @router.websocket("/ws/{user_id}")
@@ -620,23 +941,14 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
             message_data = json.loads(data)
             
             if message_data["type"] == "chat_message":
-                # Save message to database
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                
-                cursor.execute("""
-                    INSERT INTO chat_messages (session_id, sender_type, sender_id, message, message_type)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (
+                # Save message to database in JSON format
+                save_message_to_json(
                     message_data["session_id"],
                     message_data["sender_type"],
                     message_data["sender_id"],
                     message_data["message"],
                     message_data.get("message_type", "text")
-                ))
-                
-                conn.commit()
-                conn.close()
+                )
                 
                 # Get session details to forward message to correct participants
                 conn = get_db_connection()
@@ -679,23 +991,14 @@ async def support_websocket_endpoint(websocket: WebSocket, support_user_id: str)
             message_data = json.loads(data)
             
             if message_data["type"] == "chat_message":
-                # Save message to database
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                
-                cursor.execute("""
-                    INSERT INTO chat_messages (session_id, sender_type, sender_id, message, message_type)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (
+                # Save message to database in JSON format
+                save_message_to_json(
                     message_data["session_id"],
                     message_data["sender_type"],
                     message_data["sender_id"],
                     message_data["message"],
                     message_data.get("message_type", "text")
-                ))
-                
-                conn.commit()
-                conn.close()
+                )
                 
                 # Get session details to forward message to correct participants
                 conn = get_db_connection()

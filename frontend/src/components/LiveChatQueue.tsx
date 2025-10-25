@@ -5,6 +5,7 @@ interface ChatRequest {
   user_name: string;
   user_email?: string;
   category_name: string;
+  subcategory_name?: string;
   message?: string;
   created_at: string;
   expires_at: string;
@@ -17,7 +18,9 @@ interface ChatSession {
   user_name: string;
   user_email?: string;
   category_name: string;
+  subcategory_name?: string;
   started_at: string;
+  ended_at?: string;
 }
 
 const LiveChatQueue: React.FC = () => {
@@ -95,6 +98,9 @@ const LiveChatQueue: React.FC = () => {
               is_read: false,
               created_at: new Date().toISOString()
             }]);
+          } else if (data.type === 'request_canceled') {
+            // Remove canceled request from pending requests
+            setRequests(prev => prev.filter(req => req.id !== data.data.request_id));
           }
         };
         ws.onclose = () => {
@@ -409,7 +415,27 @@ const LiveChatQueue: React.FC = () => {
   };
 
   const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString();
+    try {
+      const date = new Date(timestamp);
+      
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        return 'Invalid time';
+      }
+      
+      // Format as: MM/DD/YYYY, HH:MM:SS AM/PM
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      });
+    } catch (error) {
+      return 'Invalid time';
+    }
   };
 
   const getTimeRemaining = (expiresAt: string) => {
@@ -540,7 +566,9 @@ const LiveChatQueue: React.FC = () => {
                       {request.user_name}
                     </div>
                     <div style={{ fontSize: '14px', color: '#6b7280' }}>
-                      {request.category_name} • {formatTime(request.created_at)}
+                      {request.category_name}
+                      {request.subcategory_name && ` → ${request.subcategory_name}`}
+                      {' • '}{formatTime(request.created_at)}
                     </div>
                     {request.user_email && (
                       <div style={{ fontSize: '12px', color: '#9ca3af' }}>
@@ -717,16 +745,19 @@ const LiveChatQueue: React.FC = () => {
                     </div>
                     <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '8px' }}>
                       Category: {session.category_name}
+                      {session.subcategory_name && (
+                        <span style={{ color: '#9ca3af' }}> → {session.subcategory_name}</span>
+                      )}
                     </div>
                     <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '8px' }}>
                       Support: {session.support_name}
                     </div>
                     <div style={{ fontSize: '12px', color: '#9ca3af' }}>
-                      Started: {new Date(session.started_at).toLocaleString()}
+                      Started: {formatTime(session.started_at)}
                     </div>
                     {session.ended_at && (
                       <div style={{ fontSize: '12px', color: '#9ca3af' }}>
-                        Ended: {new Date(session.ended_at).toLocaleString()}
+                        Ended: {formatTime(session.ended_at)}
                       </div>
                     )}
                   </div>
@@ -1218,6 +1249,9 @@ const LiveChatQueue: React.FC = () => {
                       <div style={{ marginBottom: '12px' }}>
                         <div style={{ fontSize: '14px', color: '#374151', marginBottom: '4px' }}>
                           <strong>Category:</strong> {request.category_name}
+                          {request.subcategory_name && (
+                            <span style={{ color: '#6b7280' }}> → {request.subcategory_name}</span>
+                          )}
                         </div>
                         <div style={{ fontSize: '14px', color: '#374151', marginBottom: '4px' }}>
                           <strong>Rejected by:</strong> {request.rejected_by}

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import ChatNowModal from './ChatNowModal'
 import LiveChatWindow from './LiveChatWindow'
+import RejectionModal from './RejectionModal'
 
 type Suggestion = {
   text: string
@@ -57,7 +58,11 @@ const ChatWidget: React.FC = () => {
       }
     `
     document.head.appendChild(style)
-    return () => document.head.removeChild(style)
+    return () => {
+      if (document.head.contains(style)) {
+        document.head.removeChild(style)
+      }
+    }
   }, [])
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
@@ -87,9 +92,12 @@ const ChatWidget: React.FC = () => {
     sessionId: number;
     userId: string;
     supportUserId: number;
+    userName?: string;
   } | null>(null)
   const [wsConnection, setWsConnection] = useState<WebSocket | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [showRejectionModal, setShowRejectionModal] = useState(false)
+  const [rejectionMessage, setRejectionMessage] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const popupTimeoutRef = useRef<number | null>(null)
@@ -224,6 +232,28 @@ const ChatWidget: React.FC = () => {
     }
   }, [])
 
+  // Event listeners for rejection modal actions
+  useEffect(() => {
+    const handleOpenTicketModal = () => {
+      setShowRejectionModal(false)
+      // Trigger ticket creation - you can add your ticket modal logic here
+      console.log('Opening ticket modal...')
+    };
+
+    const handleOpenChatModal = () => {
+      setShowRejectionModal(false)
+      setShowChatNowModal(true)
+    };
+
+    window.addEventListener('openTicketModal', handleOpenTicketModal)
+    window.addEventListener('openChatModal', handleOpenChatModal)
+
+    return () => {
+      window.removeEventListener('openTicketModal', handleOpenTicketModal)
+      window.removeEventListener('openChatModal', handleOpenChatModal)
+    }
+  }, [])
+
   // WebSocket connection for live chat
   useEffect(() => {
     if (currentUserId && !wsConnection) {
@@ -245,7 +275,12 @@ const ChatWidget: React.FC = () => {
           })
           setShowChatNowModal(false)
         } else if (message.type === 'chat_rejected') {
-          alert(message.data.message)
+          setRejectionMessage(message.data.message || 'Your chat request has been rejected. Please try again later.')
+          setShowRejectionModal(true)
+          setShowChatNowModal(false)
+        } else if (message.type === 'request_timeout') {
+          setRejectionMessage('Your chat request has timed out. Please try again later.')
+          setShowRejectionModal(true)
           setShowChatNowModal(false)
         }
       }
@@ -993,6 +1028,9 @@ const ChatWidget: React.FC = () => {
         onRequestCreated={(userId: string) => {
           setCurrentUserId(userId)
         }}
+        onTimeout={() => {
+          setShowChatNowModal(false)
+        }}
       />
 
       {liveChatSession && (
@@ -1005,6 +1043,15 @@ const ChatWidget: React.FC = () => {
           userName={liveChatSession.userName || 'User'}
         />
       )}
+
+      {/* Rejection Modal */}
+      <RejectionModal
+        isOpen={showRejectionModal}
+        onClose={() => setShowRejectionModal(false)}
+        message={rejectionMessage}
+        title="Request Rejected"
+        showTicketOption={true}
+      />
 
     </div>
   )

@@ -303,6 +303,13 @@ async def get_role_permissions(role_id: int, current_user: dict = Depends(get_cu
     permissions = user_db.get_role_permissions(role_id)
     return {"permissions": permissions}
 
+@router.get("/{user_id}/permissions")
+async def get_user_permissions(user_id: int, current_user: dict = Depends(get_current_user)):
+    """Get permissions for a specific user"""
+    
+    permissions = user_db.get_user_permissions(user_id)
+    return {"permissions": permissions}
+
 @router.post("/roles")
 async def create_role(role_data: RoleCreate, current_user: dict = Depends(get_current_user)):
     """Create new role (requires users_roles permission)"""
@@ -323,6 +330,8 @@ async def create_role(role_data: RoleCreate, current_user: dict = Depends(get_cu
 @router.put("/roles/{role_id}/permissions")
 async def update_role_permissions(role_id: int, permission_ids: List[int], current_user: dict = Depends(get_current_user)):
     """Update permissions for a role (requires users_roles permission)"""
+    
+    print(f"Updating role {role_id} with permissions: {permission_ids}")
     
     success = user_db.update_role_permissions(role_id, permission_ids)
     if success:

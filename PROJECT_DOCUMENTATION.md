@@ -30,7 +30,6 @@
 - **AI/ML:** Local LLM with RAG (Retrieval-Augmented Generation)
 - **Database:** ChromaDB (Vector Database)
 - **Data Processing:** NumPy, JSON
-- **Web Scraping:** BeautifulSoup4, Requests
 
 ### **AI/ML Stack**
 - **Local LLM:** Custom AI model
@@ -80,11 +79,8 @@ Venturing-Digitally-Project/
 │   ├── venturing_ai_model.py          # AI model
 │   ├── suggestion_engine.py           # Typing suggestions
 │   └── ingest.py                      # Data ingestion
-├── data/                              # Data Storage
-│   ├── faq_data.json                  # FAQ database
-│   └── venturing_digitally_data.json  # Company data
-├── scraper/                           # Web Scraping
-│   └── config.py                      # Scraper configuration
+# Removed unused data folder
+# Removed unused scraper directory
 └── PROJECT_DOCUMENTATION.md           # This file
 ```
 

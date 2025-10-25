@@ -38,14 +38,20 @@ async def login(login_data: LoginRequest):
         is_admin_user = False
         
         # First try to authenticate with main admin database
+        print(f"Trying admin auth for user: {login_data.username}")
         user = db_auth.authenticate_user(login_data.username, login_data.password)
         if user:
+            print(f"Admin auth successful for user: {login_data.username}")
             is_admin_user = True
         else:
             # If not found in admin DB, try user management database
+            print(f"Trying user management auth for user: {login_data.username}")
             user = user_db.authenticate_user(login_data.username, login_data.password)
             if user:
+                print(f"User management auth successful for user: {login_data.username}")
                 is_admin_user = False
+            else:
+                print(f"Authentication failed for user: {login_data.username}")
         
         if not user:
             raise HTTPException(

@@ -67,6 +67,7 @@ notification_stream = NotificationStream()
 async def get_current_user_from_token(token: str):
     """Get current authenticated user from token"""
     try:
+        # Try main database first
         payload = db_auth.verify_token(token)
         if payload is None:
             return None
@@ -75,11 +76,19 @@ async def get_current_user_from_token(token: str):
         if not username:
             return None
         
+        # Check main database first
         user = db_auth.get_user_by_username(username)
-        if not user:
-            return None
+        if user:
+            return user
         
-        return user
+        # If not found in main database, check user management database
+        from user_management_db import UserManagementDB
+        user_db = UserManagementDB()
+        user = user_db.get_user_by_username(username)
+        if user:
+            return user
+        
+        return None
     except Exception as e:
         return None
 
@@ -127,7 +136,6 @@ def create_notification_routes(app: FastAPI):
             if not user:
                 raise HTTPException(status_code=401, detail="Invalid or expired token")
         except Exception as e:
-            print(f"Token verification error: {e}")
             raise HTTPException(status_code=401, detail="Token verification failed")
         
         return StreamingResponse(

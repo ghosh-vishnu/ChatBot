@@ -14,6 +14,7 @@ from ticket_database import ticket_db
 import random
 
 from sqlite_auth import db_auth
+from faq_database import faq_db
 
 router = APIRouter()
 security = HTTPBearer()
@@ -255,10 +256,9 @@ async def get_recent_conversations(limit: int = 10):
 
 @router.get("/admin/faqs")
 async def get_faqs():
-    """Get FAQs - Public endpoint for testing"""
-    """Get FAQs"""
+    """Get FAQs from database"""
     try:
-        faqs = load_data("faqs.json", [])
+        faqs = faq_db.get_all_faqs()
         
         return {
             "faqs": faqs,
@@ -270,66 +270,64 @@ async def get_faqs():
 
 @router.post("/admin/faqs")
 async def create_faq(faq_data: dict):
-    """Create a new FAQ - Public endpoint for testing"""
-    """Create a new FAQ"""
+    """Create a new FAQ in database"""
     try:
-        faqs = load_data("faqs.json", [])
+        new_faq = faq_db.create_faq(
+            question=faq_data.get("question", ""),
+            answer=faq_data.get("answer", ""),
+            category_name=faq_data.get("category", "General"),
+            custom_category=faq_data.get("customCategory", "")
+        )
         
-        new_faq = {
-            "id": f"faq_{len(faqs) + 1}_{int(datetime.now().timestamp())}",
-            "question": faq_data.get("question", ""),
-            "answer": faq_data.get("answer", ""),
-            "category": faq_data.get("category", "General"),
-            "customCategory": faq_data.get("customCategory", ""),
-            "views": 0,
-            "success_rate": 85,
-            "last_updated": datetime.now().isoformat()
-        }
-        
-        faqs.append(new_faq)
-        save_data("faqs.json", faqs)
-        
-        return {"message": "FAQ created successfully", "faq": new_faq}
+        if new_faq:
+            return {"message": "FAQ created successfully", "faq": new_faq}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create FAQ")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/admin/faqs/{faq_id}")
 async def update_faq(faq_id: str, faq_data: dict):
-    """Update an existing FAQ - Public endpoint for testing"""
-    """Update an existing FAQ"""
+    """Update an existing FAQ in database"""
     try:
-        faqs = load_data("faqs.json", [])
+        updates = {}
+        if "question" in faq_data:
+            updates["question"] = faq_data["question"]
+        if "answer" in faq_data:
+            updates["answer"] = faq_data["answer"]
+        if "category" in faq_data:
+            updates["category"] = faq_data["category"]
+        if "customCategory" in faq_data:
+            updates["customCategory"] = faq_data["customCategory"]
         
-        for i, faq in enumerate(faqs):
-            if faq["id"] == faq_id:
-                faqs[i].update({
-                    "question": faq_data.get("question", faq["question"]),
-                    "answer": faq_data.get("answer", faq["answer"]),
-                    "category": faq_data.get("category", faq["category"]),
-                    "customCategory": faq_data.get("customCategory", faq.get("customCategory", "")),
-                    "last_updated": datetime.now().isoformat()
-                })
-                save_data("faqs.json", faqs)
-                return {"message": "FAQ updated successfully", "faq": faqs[i]}
+        updated_faq = faq_db.update_faq(faq_id, **updates)
         
-        raise HTTPException(status_code=404, detail="FAQ not found")
+        if updated_faq:
+            return {"message": "FAQ updated successfully", "faq": updated_faq}
+        else:
+            raise HTTPException(status_code=404, detail="FAQ not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/admin/faqs/{faq_id}")
 async def delete_faq(faq_id: str):
-    """Delete an existing FAQ - Public endpoint for testing"""
-    """Delete an FAQ"""
+    """Delete an FAQ from database (soft delete)"""
     try:
-        faqs = load_data("faqs.json", [])
-        
-        for i, faq in enumerate(faqs):
-            if faq["id"] == faq_id:
-                deleted_faq = faqs.pop(i)
-                save_data("faqs.json", faqs)
-                return {"message": "FAQ deleted successfully", "faq": deleted_faq}
-        
-        raise HTTPException(status_code=404, detail="FAQ not found")
+        if faq_db.delete_faq(faq_id):
+            return {"message": "FAQ deleted successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="FAQ not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/admin/faqs/{faq_id}/permanent")
+async def hard_delete_faq(faq_id: str):
+    """Permanently delete an FAQ from database (hard delete)"""
+    try:
+        if faq_db.hard_delete_faq(faq_id):
+            return {"message": "FAQ permanently deleted successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="FAQ not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

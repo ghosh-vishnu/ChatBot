@@ -6,6 +6,7 @@ Generates relevant suggestions based on user queries and context
 from __future__ import annotations
 from typing import List, Dict, Optional
 import re
+from faq_database import faq_db
 
 class SuggestionEngine:
     """Generates intelligent suggestions based on user queries"""
@@ -385,12 +386,8 @@ class SuggestionEngine:
             import os
             
             # Load FAQs from database
-            faqs_file = "data/faqs.json"
-            if os.path.exists(faqs_file):
-                with open(faqs_file, 'r') as f:
-                    faqs = json.load(f)
-            else:
-                return []
+            from faq_database import faq_db
+            faqs = faq_db.get_all_faqs()
             
             # Convert FAQs to suggestion format
             suggestions = []
