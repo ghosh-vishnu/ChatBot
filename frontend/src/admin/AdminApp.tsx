@@ -129,6 +129,20 @@ interface AIModelData {
   status: string
 }
 
+interface ChatCategory {
+  id: number
+  name: string
+  description: string
+  is_active: boolean
+}
+
+interface CategoryStats {
+  total_categories: number
+  active_categories: number
+  inactive_categories: number
+  usage_stats: { name: string; usage_count: number }[]
+}
+
 const AdminApp: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -190,6 +204,20 @@ const AdminApp: React.FC = () => {
   const [userPermissions, setUserPermissions] = useState<Permission[]>([])
   const [showProfileModal, setShowProfileModal] = useState(false)
   
+  // Chat Management state
+  const [chatCategories, setChatCategories] = useState<ChatCategory[]>([])
+  const [showCategoryModal, setShowCategoryModal] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<ChatCategory | null>(null)
+  const [newCategory, setNewCategory] = useState({ name: '', description: '' })
+  const [categoryStats, setCategoryStats] = useState<CategoryStats | null>(null)
+  
+  // Subcategories state
+  const [subcategories, setSubcategories] = useState<any[]>([])
+  const [showSubcategoryModal, setShowSubcategoryModal] = useState(false)
+  const [editingSubcategory, setEditingSubcategory] = useState<any>(null)
+  const [newSubcategory, setNewSubcategory] = useState({ name: '', description: '', category_id: 0 })
+  const [selectedCategoryForSubcategory, setSelectedCategoryForSubcategory] = useState<number | null>(null)
+  
   // Role-based access control
   const hasAccess = (tabId: string) => {
     if (!currentUser) return false
@@ -208,6 +236,9 @@ const AdminApp: React.FC = () => {
       case 'faq':
       case 'tickets':
       case 'livechat':
+        // Super Admin, Support can access
+        return ['Super Admin', 'Support', 'admin'].includes(userRole)
+      case 'chatmanagement':
         // Super Admin, Support can access
         return ['Super Admin', 'Support', 'admin'].includes(userRole)
       default:
@@ -289,7 +320,7 @@ const AdminApp: React.FC = () => {
   // Redirect to first available tab if current tab is not accessible
   useEffect(() => {
     if (isAuthenticated && currentUser && !hasAccess(activeTab)) {
-      const availableTabs = ['overview', 'analytics', 'faq', 'tickets', 'reports', 'users']
+      const availableTabs = ['overview', 'analytics', 'faq', 'tickets', 'livechat', 'chatmanagement', 'reports', 'users']
       const firstAvailableTab = availableTabs.find(tab => hasAccess(tab))
       if (firstAvailableTab) {
         setActiveTab(firstAvailableTab)
@@ -303,6 +334,15 @@ const AdminApp: React.FC = () => {
       fetchUsers()
       fetchRoles()
       fetchPermissions()
+    }
+  }, [isAuthenticated, activeTab])
+
+  // Load chat management data when chatmanagement tab is active
+  useEffect(() => {
+    if (isAuthenticated && activeTab === 'chatmanagement') {
+      fetchChatCategories()
+      fetchCategoryStats()
+      fetchSubcategories()
     }
   }, [isAuthenticated, activeTab])
 
@@ -1241,6 +1281,298 @@ const AdminApp: React.FC = () => {
     }
   }
 
+  // Chat Management functions
+  const fetchChatCategories = async () => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+      
+      const response = await fetch('http://localhost:8000/admin/chat/categories', {
+        headers
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setChatCategories(data)
+      } else {
+        console.error('Failed to fetch chat categories:', response.status)
+      }
+    } catch (error) {
+      console.error('Error fetching chat categories:', error)
+    }
+  }
+
+  const fetchCategoryStats = async () => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+      
+      const response = await fetch('http://localhost:8000/admin/chat/categories/stats', {
+        headers
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setCategoryStats(data)
+      } else {
+        console.error('Failed to fetch category stats:', response.status)
+      }
+    } catch (error) {
+      console.error('Error fetching category stats:', error)
+    }
+  }
+
+  const fetchSubcategories = async () => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      if (!token) {
+        console.error('No admin token found')
+        return
+      }
+      
+      const headers = { 'Authorization': `Bearer ${token}` }
+      
+      const response = await fetch('http://localhost:8000/admin/chat/subcategories', {
+        headers
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        setSubcategories(data)
+      } else {
+        console.error('Failed to fetch subcategories:', response.status)
+      }
+    } catch (error) {
+      console.error('Error fetching subcategories:', error)
+    }
+  }
+
+  const createSubcategory = async () => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      if (!token) {
+        alert('Please login again')
+        return
+      }
+      
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+      
+      const subcategoryData = {
+        name: newSubcategory.name.trim(),
+        description: newSubcategory.description.trim(),
+        category_id: selectedCategoryForSubcategory
+      }
+      
+      const response = await fetch('http://localhost:8000/admin/chat/subcategories', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(subcategoryData)
+      })
+      
+      if (response.ok) {
+        alert('Subcategory created successfully!')
+        setNewSubcategory({ name: '', description: '', category_id: 0 })
+        await fetchSubcategories()
+      } else {
+        const errorData = await response.json()
+        console.error('Error response:', errorData)
+        alert(`Error creating subcategory: ${errorData.detail || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error creating subcategory:', error)
+      alert('Error creating subcategory. Please try again.')
+    }
+  }
+
+  const updateSubcategory = async () => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+      
+      const response = await fetch(`http://localhost:8000/admin/chat/subcategories/${editingSubcategory.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          name: newSubcategory.name,
+          description: newSubcategory.description,
+          is_active: true
+        })
+      })
+      
+      if (response.ok) {
+        alert('Subcategory updated successfully!')
+        setEditingSubcategory(null)
+        setNewSubcategory({ name: '', description: '', category_id: 0 })
+        fetchSubcategories()
+      } else {
+        const errorData = await response.json()
+        alert(`Error updating subcategory: ${errorData.detail || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error updating subcategory:', error)
+      alert('Error updating subcategory. Please try again.')
+    }
+  }
+
+  const deleteSubcategory = async (subcategoryId: number) => {
+    if (!confirm('Are you sure you want to delete this subcategory?')) return
+    
+    try {
+      const token = localStorage.getItem('admin_token')
+      if (!token) {
+        alert('Please login again')
+        return
+      }
+      
+      const headers = { 'Authorization': `Bearer ${token}` }
+      
+      const response = await fetch(`http://localhost:8000/admin/chat/subcategories/${subcategoryId}`, {
+        method: 'DELETE',
+        headers
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        alert('Subcategory deleted successfully!')
+        await fetchSubcategories()
+      } else {
+        const errorData = await response.json()
+        console.error('Delete error response:', errorData)
+        alert(`Error deleting subcategory: ${errorData.detail || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error deleting subcategory:', error)
+      alert('Error deleting subcategory. Please try again.')
+    }
+  }
+
+  const createCategory = async () => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+      
+      const response = await fetch('http://localhost:8000/admin/chat/categories', {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newCategory)
+      })
+      
+      if (response.ok) {
+        await fetchChatCategories()
+        await fetchCategoryStats()
+        setShowCategoryModal(false)
+        setNewCategory({ name: '', description: '' })
+        alert('Category created successfully!')
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to create category: ${errorData.detail || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error creating category:', error)
+      alert('Error creating category. Please try again.')
+    }
+  }
+
+  const updateCategory = async () => {
+    if (!editingCategory) return
+    
+    try {
+      const token = localStorage.getItem('admin_token')
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+      
+      const response = await fetch(`http://localhost:8000/admin/chat/categories/${editingCategory.id}`, {
+        method: 'PUT',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newCategory)
+      })
+      
+      if (response.ok) {
+        await fetchChatCategories()
+        await fetchCategoryStats()
+        setShowCategoryModal(false)
+        setEditingCategory(null)
+        setNewCategory({ name: '', description: '' })
+        alert('Category updated successfully!')
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to update category: ${errorData.detail || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error updating category:', error)
+      alert('Error updating category. Please try again.')
+    }
+  }
+
+  const deleteCategory = async (categoryId: number) => {
+    if (!confirm('Are you sure you want to delete this category?')) return
+    
+    try {
+      const token = localStorage.getItem('admin_token')
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+      
+      const response = await fetch(`http://localhost:8000/admin/chat/categories/${categoryId}`, {
+        method: 'DELETE',
+        headers
+      })
+      
+      if (response.ok) {
+        await fetchChatCategories()
+        await fetchCategoryStats()
+        alert('Category deleted successfully!')
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to delete category: ${errorData.detail || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error deleting category:', error)
+      alert(`Error deleting category: ${error.message}`)
+    }
+  }
+
+  const toggleCategoryStatus = async (category: ChatCategory) => {
+    try {
+      const token = localStorage.getItem('admin_token')
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {}
+      
+      const response = await fetch(`http://localhost:8000/admin/chat/categories/${category.id}`, {
+        method: 'PUT',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: category.name,
+          description: category.description,
+          is_active: !category.is_active
+        })
+      })
+      
+      if (response.ok) {
+        await fetchChatCategories()
+        await fetchCategoryStats()
+        alert(`Category ${!category.is_active ? 'activated' : 'deactivated'} successfully!`)
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to update category: ${errorData.detail || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error updating category status:', error)
+      alert(`Error updating category status: ${error.message}`)
+    }
+  }
+
   // Render tab content based on active tab
   const renderTabContent = () => {
     switch (activeTab) {
@@ -1254,6 +1586,8 @@ const AdminApp: React.FC = () => {
         return renderTicketsTab()
       case 'livechat':
         return renderLiveChatTab()
+      case 'chatmanagement':
+        return renderChatManagementTab()
       case 'reports':
         return renderReportsTab()
       case 'users':
@@ -3672,6 +4006,630 @@ const AdminApp: React.FC = () => {
     </div>
   )
 
+  // Chat Management Tab
+  const renderChatManagementTab = () => (
+    <div style={{ padding: '24px 16px' }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '24px' 
+      }}>
+        <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0' }}>
+          ⚙️ Chat Management
+        </h2>
+        <button
+          onClick={() => {
+            setEditingCategory(null)
+            setNewCategory({ name: '', description: '' })
+            setShowCategoryModal(true)
+          }}
+          style={{ 
+            backgroundColor: '#10b981', 
+            color: 'white', 
+            padding: '12px 24px', 
+            borderRadius: '8px', 
+            border: 'none', 
+            fontSize: '14px', 
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          ➕ Add Category
+        </button>
+      </div>
+
+      {/* Stats Cards */}
+      {categoryStats && (
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+          gap: '16px', 
+          marginBottom: '24px' 
+        }}>
+          <div style={{ 
+            backgroundColor: 'white', 
+            padding: '20px', 
+            borderRadius: '12px', 
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#3b82f6', marginBottom: '8px' }}>
+              {categoryStats.total_categories}
+            </div>
+            <div style={{ fontSize: '14px', color: '#6b7280' }}>Total Categories</div>
+          </div>
+          <div style={{ 
+            backgroundColor: 'white', 
+            padding: '20px', 
+            borderRadius: '12px', 
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#10b981', marginBottom: '8px' }}>
+              {categoryStats.active_categories}
+            </div>
+            <div style={{ fontSize: '14px', color: '#6b7280' }}>Active Categories</div>
+          </div>
+          <div style={{ 
+            backgroundColor: 'white', 
+            padding: '20px', 
+            borderRadius: '12px', 
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#f59e0b', marginBottom: '8px' }}>
+              {categoryStats.inactive_categories}
+            </div>
+            <div style={{ fontSize: '14px', color: '#6b7280' }}>Inactive Categories</div>
+          </div>
+        </div>
+      )}
+
+      {/* Categories Table */}
+      <div style={{ 
+        backgroundColor: 'white', 
+        borderRadius: '12px', 
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        overflow: 'hidden'
+      }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f9fafb' }}>
+                <th style={{ padding: '16px', textAlign: 'left', fontSize: '14px', fontWeight: '600', color: '#374151', borderBottom: '1px solid #e5e7eb' }}>
+                  ID
+                </th>
+                <th style={{ padding: '16px', textAlign: 'left', fontSize: '14px', fontWeight: '600', color: '#374151', borderBottom: '1px solid #e5e7eb' }}>
+                  Name
+                </th>
+                <th style={{ padding: '16px', textAlign: 'left', fontSize: '14px', fontWeight: '600', color: '#374151', borderBottom: '1px solid #e5e7eb' }}>
+                  Subcategories
+                </th>
+                <th style={{ padding: '16px', textAlign: 'left', fontSize: '14px', fontWeight: '600', color: '#374151', borderBottom: '1px solid #e5e7eb' }}>
+                  Description
+                </th>
+                <th style={{ padding: '16px', textAlign: 'left', fontSize: '14px', fontWeight: '600', color: '#374151', borderBottom: '1px solid #e5e7eb' }}>
+                  Status
+                </th>
+                <th style={{ padding: '16px', textAlign: 'left', fontSize: '14px', fontWeight: '600', color: '#374151', borderBottom: '1px solid #e5e7eb' }}>
+                  Usage
+                </th>
+                <th style={{ padding: '16px', textAlign: 'center', fontSize: '14px', fontWeight: '600', color: '#374151', borderBottom: '1px solid #e5e7eb' }}>
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {chatCategories.map((category) => {
+                const usage = categoryStats?.usage_stats.find(stat => stat.name === category.name)?.usage_count || 0
+                const categorySubcategories = subcategories.filter(sub => sub.category_id === category.id)
+                return (
+                  <tr key={category.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                    <td style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>
+                      {category.id}
+                    </td>
+                    <td style={{ padding: '16px', fontSize: '14px', color: '#374151', fontWeight: '500' }}>
+                      {category.name}
+                    </td>
+                    <td style={{ padding: '16px', fontSize: '14px', color: '#6b7280' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                        {categorySubcategories.length > 0 ? (
+                          categorySubcategories.slice(0, 3).map((sub) => (
+                            <span
+                              key={sub.id}
+                              style={{
+                                padding: '2px 8px',
+                                backgroundColor: '#e5e7eb',
+                                borderRadius: '12px',
+                                fontSize: '12px',
+                                color: '#374151'
+                              }}
+                            >
+                              {sub.name}
+                            </span>
+                          ))
+                        ) : (
+                          <span style={{ color: '#9ca3af', fontSize: '12px' }}>No subcategories</span>
+                        )}
+                        {categorySubcategories.length > 3 && (
+                          <span style={{ color: '#6b7280', fontSize: '12px' }}>
+                            +{categorySubcategories.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ padding: '16px', fontSize: '14px', color: '#6b7280' }}>
+                      {category.description}
+                    </td>
+                    <td style={{ padding: '16px' }}>
+                      <span style={{
+                        padding: '4px 12px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        backgroundColor: category.is_active ? '#dcfce7' : '#fef2f2',
+                        color: category.is_active ? '#166534' : '#dc2626'
+                      }}>
+                        {category.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>
+                      {usage} requests
+                    </td>
+                    <td style={{ padding: '16px', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => {
+                            setEditingCategory(category)
+                            setNewCategory({ name: category.name, description: category.description })
+                            setShowCategoryModal(true)
+                          }}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedCategoryForSubcategory(category.id)
+                            setShowSubcategoryModal(true)
+                          }}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: '#8b5cf6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          📋 Subcategories
+                        </button>
+                        <button
+                          onClick={() => toggleCategoryStatus(category)}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: category.is_active ? '#f59e0b' : '#10b981',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {category.is_active ? '⏸️ Deactivate' : '▶️ Activate'}
+                        </button>
+                        <button
+                          onClick={() => deleteCategory(category.id)}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: '#dc2626',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Category Modal */}
+      {showCategoryModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '500px',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '20px' 
+            }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0' }}>
+                {editingCategory ? 'Edit Category' : 'Add New Category'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowCategoryModal(false)
+                  setEditingCategory(null)
+                  setNewCategory({ name: '', description: '' })
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  color: '#6b7280'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                  Category Name *
+                </label>
+                <input
+                  type="text"
+                  value={newCategory.name}
+                  onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                  placeholder="Enter category name"
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'border-color 0.2s'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                  Description *
+                </label>
+                <textarea
+                  value={newCategory.description}
+                  onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
+                  placeholder="Enter category description"
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    outline: 'none',
+                    resize: 'vertical',
+                    transition: 'border-color 0.2s'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                <button
+                  onClick={() => {
+                    setShowCategoryModal(false)
+                    setEditingCategory(null)
+                    setNewCategory({ name: '', description: '' })
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={editingCategory ? updateCategory : createCategory}
+                  disabled={!newCategory.name.trim() || !newCategory.description.trim()}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: editingCategory ? '#3b82f6' : '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    opacity: (!newCategory.name.trim() || !newCategory.description.trim()) ? 0.5 : 1
+                  }}
+                >
+                  {editingCategory ? 'Update Category' : 'Create Category'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subcategory Management Modal */}
+      {showSubcategoryModal && selectedCategoryForSubcategory && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '800px',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '20px' 
+            }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: '0' }}>
+                📋 Manage Subcategories - {chatCategories.find(cat => cat.id === selectedCategoryForSubcategory)?.name}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowSubcategoryModal(false)
+                  setSelectedCategoryForSubcategory(null)
+                  setEditingSubcategory(null)
+                  setNewSubcategory({ name: '', description: '', category_id: 0 })
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  color: '#6b7280'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Add New Subcategory Form */}
+            <div style={{ 
+              backgroundColor: '#f9fafb', 
+              padding: '16px', 
+              borderRadius: '8px', 
+              marginBottom: '20px' 
+            }}>
+              <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: '0 0 16px 0' }}>
+                Add New Subcategory
+              </h4>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'end' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={newSubcategory.name}
+                    onChange={(e) => setNewSubcategory({ ...newSubcategory, name: e.target.value })}
+                    placeholder="Enter subcategory name"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 2 }}>
+                  <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>
+                    Description *
+                  </label>
+                  <input
+                    type="text"
+                    value={newSubcategory.description}
+                    onChange={(e) => setNewSubcategory({ ...newSubcategory, description: e.target.value })}
+                    placeholder="Enter subcategory description"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+                <button
+                  onClick={async () => {
+                    if (newSubcategory.name.trim() && newSubcategory.description.trim()) {
+                      try {
+                        await createSubcategory()
+                      } catch (error) {
+                        console.error('Error creating subcategory:', error)
+                      }
+                    } else {
+                      alert('Please fill in all fields')
+                    }
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Add Subcategory
+                </button>
+              </div>
+            </div>
+
+            {/* Subcategories List */}
+            <div>
+              <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: '0 0 16px 0' }}>
+                Existing Subcategories
+              </h4>
+              {subcategories
+                .filter(sub => sub.category_id === selectedCategoryForSubcategory)
+                .map((subcategory) => (
+                  <div
+                    key={subcategory.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '12px 16px',
+                      backgroundColor: 'white',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      marginBottom: '8px'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: '500', color: '#111827' }}>
+                        {subcategory.name}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                        {subcategory.description}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => {
+                          setEditingSubcategory(subcategory)
+                          setNewSubcategory({ 
+                            name: subcategory.name, 
+                            description: subcategory.description, 
+                            category_id: subcategory.category_id 
+                          })
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          backgroundColor: '#3b82f6',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await deleteSubcategory(subcategory.id)
+                          } catch (error) {
+                            console.error('Error deleting subcategory:', error)
+                          }
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          backgroundColor: '#dc2626',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              {subcategories.filter(sub => sub.category_id === selectedCategoryForSubcategory).length === 0 && (
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '40px', 
+                  color: '#6b7280',
+                  fontSize: '14px'
+                }}>
+                  No subcategories found. Add one above to get started.
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <button
+                onClick={() => {
+                  setShowSubcategoryModal(false)
+                  setSelectedCategoryForSubcategory(null)
+                  setEditingSubcategory(null)
+                  setNewSubcategory({ name: '', description: '', category_id: 0 })
+                }}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
   // User Management Tab
   const renderUserManagementTab = () => (
     <div style={{ padding: '24px 16px' }}>
@@ -5048,6 +6006,7 @@ const AdminApp: React.FC = () => {
               { id: 'faq', label: '📄 FAQ Management', icon: '📄' },
               { id: 'tickets', label: '🎫 Tickets', icon: '🎫' },
               { id: 'livechat', label: '💬 Live Chat', icon: '💬' },
+              { id: 'chatmanagement', label: '⚙️ Chat Management', icon: '⚙️' },
               { id: 'reports', label: '📋 Reports', icon: '📋' },
               { id: 'users', label: '👥 User Management', icon: '👥' }
             ].filter(tab => hasAccess(tab.id)).map((tab) => (
